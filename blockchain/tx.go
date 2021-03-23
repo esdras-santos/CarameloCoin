@@ -3,12 +3,13 @@ package blockchain
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"gochain/wallet"
 )
 
 type TxOutput struct{
 	Value int
-	PubKeyHash []byte
+	scriptPubKey string
 }
 
 type TxOutputs struct{
@@ -18,15 +19,24 @@ type TxOutputs struct{
 type TxInput struct {
 	ID []byte
 	Out int
-	Signature []byte
-	PubKey []byte
+	scripSig string
+	sequence []byte
+}
+
+type TxInputs struct{
+	Inputs []TxInput
 }
 
 func NewTXOutput(value int,address string) *TxOutput{
-	txo := &TxOutput{value,nil}
-	txo.Lock([]byte(address))
+	txo := &TxOutput{value, ""}
+	txo.LockScript([]byte(address))
 
 	return txo
+}
+
+func NewInput(id []byte, out int, sequence []byte) *TxInput{
+	txi := &TxInput{id,out, "", sequence}
+	return txi
 }
 
 func (outs TxOutputs) Serialize()[]byte{
@@ -50,12 +60,18 @@ func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
 	return bytes.Compare(lockingHash,pubKeyHash) == 0
 }
 
-func (out *TxOutput) Lock(address []byte){
-	pubKeyHash := wallet.Base58Decode(address)
-	pubKeyHash = pubKeyHash[1:len(pubKeyHash)-4]
-	out.PubKeyHash  = pubKeyHash 
+func (out *TxOutput) LockScript(address []byte){
+	addr := wallet.Base58Decode(address)
+	addr = addr[1:len(addr)-4]
+	script := fmt.Sprintf("OP_DUP OP_HASH160 %s EQUALVERIFY CHECKSIG",string(addr[:]))
+	out.scriptPubKey = script 
 }
 
-func (out *TxOutput) IsLockedWithKey(pubKeyHash []byte) bool{
-	return bytes.Compare(out.PubKeyHash,pubKeyHash) == 0	
+func (in *TxInput) UnlockScript(sig, pubK []byte){
+	script := fmt.Sprintf("%s %s",string(sig[:]), string(pubK[:]))
+	in.scripSig = script
+}
+
+func (out *TxOutput) IsLockedWithKey(scriptPubKey string) bool{
+	return out.scriptPubKey == scriptPubKey	
 }
