@@ -19,8 +19,8 @@ type TxOutputs struct{
 type TxInput struct {
 	ID []byte
 	Out int
-	scripSig string
-	sequence []byte
+	PubKey []byte
+	Signature []byte
 }
 
 type TxInputs struct{

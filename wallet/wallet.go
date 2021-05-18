@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"log"
+	"math/big"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -30,6 +31,21 @@ func (w Wallet) Address() []byte{
 	return address
 }
 
+func (w *Wallet) Sec(compressed bool) []byte{
+	y := w.PrivateKey.PublicKey.Y.Mod(w.PrivateKey.PublicKey.Y,big.NewInt(2))
+	if compressed {
+		if y.Cmp(big.NewInt(0)) == 0{
+			return append([]byte{0x02}, w.PrivateKey.PublicKey.X.Bytes()...)
+		}else{
+			return append([]byte{0x03}, w.PrivateKey.PublicKey.X.Bytes()...)
+		}
+	}else{
+		fullPubKey := append(w.PrivateKey.PublicKey.X.Bytes(),w.PrivateKey.PublicKey.Y.Bytes()...)
+		return append([]byte{0x04}, fullPubKey...)
+	}
+	
+}
+
 func ValidateAddress(address string) bool{
 	pubKeyHash := Base58Decode([]byte(address))
 	actualChecksum := pubKeyHash[len(pubKeyHash)-checksumLength:]
@@ -47,6 +63,7 @@ func NewKeyPair() (ecdsa.PrivateKey,[]byte){
 	pub := append(private.PublicKey.X.Bytes(),private.PublicKey.Y.Bytes()...)
 	return *private,pub
 }
+
 
 func MakeWallet() *Wallet{
 	private,public := NewKeyPair()
