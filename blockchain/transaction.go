@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
@@ -17,20 +18,69 @@ import (
 )
 
 type Transaction struct {
-	ID      []byte
+	Version int
+	Locktime int
+	//ID      []byte
 	Inputs  []TxInput
 	Outputs []TxOutput
+	Testnet bool
 }
 
-func (tx *Transaction) Hash() []byte {
+func (tx *Transaction) hash() []byte {
 	var hash [32]byte
 
 	txCopy := *tx
-	txCopy.ID = []byte{}
+	//txCopy.ID = []byte{}
 
 	hash = sha256.Sum256(txCopy.Serialize())
 
 	return hash[:]
+}
+
+func (tx *Transaction) Id() []byte{
+	return tx.hash()
+}
+
+func ReadVarint(s []byte, buf *uint){
+	i := s[0]
+	if i == 0xfd{
+		a := binary.LittleEndian.Uint16(s[1:3])
+		*buf = uint(a)
+	}else if i == 0xfe{
+		a := binary.LittleEndian.Uint32(s[1:5])
+		*buf = uint(a)
+	}else if i == 0xff{
+		a := binary.LittleEndian.Uint64(s[1:9])
+		*buf = uint(a)
+	}else{
+		*buf = uint(i)
+	}
+}
+
+func encodeVarint(i big.Int, buf *[]byte) {
+	var bignum, ok = new(big.Int).SetString("0x10000000000000000", 0)
+	ibytes := i.Bytes()
+	var lebytes []byte
+	for i := len(ibytes)-1;i >= 0;i--{
+		lebytes = append(lebytes, ibytes[i]) 
+	} 
+	if !ok {
+		log.Panic("fails to create the big number")
+	}
+	if cmp := i.Cmp(big.NewInt(0xfd));cmp < 0 {
+		*buf = ibytes
+	}else if cmp := i.Cmp(big.NewInt(0x10000));cmp < 0{
+		*buf = lebytes
+		*buf = append([]byte{0xfd},*buf...) 
+	}else if cmp := i.Cmp(big.NewInt(0x100000000));cmp < 0{
+		*buf = lebytes
+		*buf = append([]byte{0xfe},*buf...)
+	}else if cmp := i.Cmp(bignum);cmp < 0{
+		*buf = lebytes
+		*buf = append([]byte{0xff},*buf...)
+	}else{
+		log.Panic("integer too large")
+	}
 }
 
 func (tx Transaction) Serialize() []byte {
@@ -66,7 +116,7 @@ func CoinbaseTx(to, data string) *Transaction {
 	txout := NewTXOutput(20, to)
 
 	tx := Transaction{nil, []TxInput{txin}, []TxOutput{*txout}}
-	tx.ID = tx.Hash()
+	//tx.ID = tx.Hash()
 
 	return &tx
 }
@@ -82,6 +132,7 @@ func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Tra
 		log.Panic("Error: not enough funds")
 	}
 
+	// out and txId must be in little endian 32 bytes and 4 bytes respectivily
 	for txid, outs := range validOutputs {
 		txID, err := hex.DecodeString(txid)
 		Handle(err)

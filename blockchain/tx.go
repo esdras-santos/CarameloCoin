@@ -8,23 +8,30 @@ import (
 )
 
 type TxOutput struct{
-	Value int
-	scriptPubKey string
-}
-
-type TxOutputs struct{
-	Outputs []TxOutput
+	Amount int
+	ScriptPubKey string
 }
 
 type TxInput struct {
-	ID []byte
-	Out int
-	PubKey []byte
-	Signature []byte
+	PrevTxID []byte // 32 bytes little-endian
+	Out []byte // 4 bytes little-endian
+	ScriptSig []byte
+	Sequence []byte // 4 bytes little-endian
+}
+func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
+	in.PrevTxID = prevTx
+	in.Out = prevIndex
+	if scriptSig == nil{
+		in.ScriptSig = Script()
+	}else{
+		in.ScriptSig = scriptSig
+	}
+	in.Sequence = sequence
 }
 
-type TxInputs struct{
-	Inputs []TxInput
+
+func Script()[]byte{
+	return nil
 }
 
 func NewTXOutput(value int,address string) *TxOutput{
@@ -34,10 +41,7 @@ func NewTXOutput(value int,address string) *TxOutput{
 	return txo
 }
 
-func NewInput(id []byte, out int, sequence []byte) *TxInput{
-	txi := &TxInput{id,out, "", sequence}
-	return txi
-}
+
 
 func (outs TxOutputs) Serialize()[]byte{
 	var buffer bytes.Buffer
