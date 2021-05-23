@@ -18,8 +18,8 @@ import (
 )
 
 type Transaction struct {
-	Version int
-	Locktime int
+	Version *big.Int
+	Locktime *big.Int
 	//ID      []byte
 	Inputs  []TxInput
 	Outputs []TxOutput
@@ -60,10 +60,7 @@ func ReadVarint(s []byte, buf *uint){
 func encodeVarint(i big.Int, buf *[]byte) {
 	var bignum, ok = new(big.Int).SetString("0x10000000000000000", 0)
 	ibytes := i.Bytes()
-	var lebytes []byte
-	for i := len(ibytes)-1;i >= 0;i--{
-		lebytes = append(lebytes, ibytes[i]) 
-	} 
+	lebytes := toLittleEndian(ibytes) 
 	if !ok {
 		log.Panic("fails to create the big number")
 	}
@@ -84,15 +81,27 @@ func encodeVarint(i big.Int, buf *[]byte) {
 }
 
 func (tx Transaction) Serialize() []byte {
-	var encoded bytes.Buffer
+	result := toLittleEndian(tx.Version.Bytes())
 
-	enc := gob.NewEncoder(&encoded)
-	err := enc.Encode(tx)
-	if err != nil {
-		log.Panic(err)
+	lenIns := big.NewInt(int64(len(tx.Inputs)))
+	var lenInsEnc []byte
+	encodeVarint(*lenIns,&lenInsEnc)
+	result = append(result, lenInsEnc...)
+	for i := 0; i < len(tx.Inputs);i++{
+		result = append(result, tx.Inputs[i].Serialize()...)
 	}
 
-	return encoded.Bytes()
+	lenOuts := big.NewInt(int64(len(tx.Outputs)))
+	var lenOutsEnc []byte
+	encodeVarint(*lenOuts,&lenOutsEnc)
+	result = append(result, lenOutsEnc...)
+	for i := 0; i < len(tx.Outputs);i++{
+		result = append(result, tx.Outputs[i].Serialize()...)
+	}
+
+	result = append(result, toLittleEndian(tx.Locktime.Bytes())...)
+
+	return result
 }
 
 func DeserializeTransaction(data []byte) Transaction {
@@ -251,6 +260,8 @@ func (tx *Transaction) TrimmedCopy() Transaction {
 
 	return txCopy
 }
+
+
 
 func (tx Transaction) String() string {
 	var lines []string

@@ -5,12 +5,10 @@ import (
 	"encoding/gob"
 	"fmt"
 	"gochain/wallet"
+	"math/big"
 )
 
-type TxOutput struct{
-	Amount int
-	ScriptPubKey string
-}
+
 
 type TxInput struct {
 	PrevTxID []byte // 32 bytes little-endian
@@ -28,27 +26,29 @@ func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
 	}
 	in.Sequence = sequence
 }
-
+func (in TxInput) Serialize() []byte{
+	result := toLittleEndian(in.PrevTxID)
+	result = append(result, toLittleEndian(in.Out)...)
+	result = append(result, in.ScriptSig...)
+	result = append(result, toLittleEndian(in.Sequence)...)
+	
+	return result
+}
 
 func Script()[]byte{
 	return nil
 }
 
-func NewTXOutput(value int,address string) *TxOutput{
-	txo := &TxOutput{value, ""}
-	txo.LockScript([]byte(address))
-
-	return txo
+type TxOutput struct{
+	Amount *big.Int
+	ScriptPubKey []byte
 }
+func (out TxOutput) Serialize()[]byte{
+	amount := out.Amount.Bytes()
+	result := toLittleEndian(amount)
+	result = append(result, out.ScriptPubKey...)
 
-
-
-func (outs TxOutputs) Serialize()[]byte{
-	var buffer bytes.Buffer
-	encode := gob.NewEncoder(&buffer)
-	err := encode.Encode(outs)
-	Handle(err)
-	return buffer.Bytes()
+	return result
 }
 
 func DeserializeOutputs(data []byte) TxOutputs{
@@ -64,18 +64,14 @@ func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
 	return bytes.Compare(lockingHash,pubKeyHash) == 0
 }
 
-func (out *TxOutput) LockScript(address []byte){
-	addr := wallet.Base58Decode(address)
-	addr = addr[1:len(addr)-4]
-	script := fmt.Sprintf("OP_DUP OP_HASH160 %s EQUALVERIFY CHECKSIG",string(addr[:]))
-	out.scriptPubKey = script 
-}
-
-func (in *TxInput) UnlockScript(sig, pubK []byte){
-	script := fmt.Sprintf("%s %s",string(sig[:]), string(pubK[:]))
-	in.scripSig = script
-}
-
 func (out *TxOutput) IsLockedWithKey(scriptPubKey string) bool{
 	return out.scriptPubKey == scriptPubKey	
+}
+
+func toLittleEndian(bytes []byte) []byte{
+	var le []byte
+	for i := len(bytes)-1;i >= 0;i--{
+		le = append(le, bytes[i]) 
+	}
+	return le
 }
