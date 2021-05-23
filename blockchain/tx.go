@@ -27,10 +27,10 @@ func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
 	in.Sequence = sequence
 }
 func (in TxInput) Serialize() []byte{
-	result := toLittleEndian(in.PrevTxID)
-	result = append(result, toLittleEndian(in.Out)...)
+	result := toLittleEndian(in.PrevTxID,len(in.PrevTxID))
+	result = append(result, toLittleEndian(in.Out,4)...)
 	result = append(result, in.ScriptSig...)
-	result = append(result, toLittleEndian(in.Sequence)...)
+	result = append(result, toLittleEndian(in.Sequence,4)...)
 	
 	return result
 }
@@ -45,7 +45,7 @@ type TxOutput struct{
 }
 func (out TxOutput) Serialize()[]byte{
 	amount := out.Amount.Bytes()
-	result := toLittleEndian(amount)
+	result := toLittleEndian(amount,8)
 	result = append(result, out.ScriptPubKey...)
 
 	return result
@@ -68,10 +68,13 @@ func (out *TxOutput) IsLockedWithKey(scriptPubKey string) bool{
 	return out.scriptPubKey == scriptPubKey	
 }
 
-func toLittleEndian(bytes []byte) []byte{
-	var le []byte
-	for i := len(bytes)-1;i >= 0;i--{
-		le = append(le, bytes[i]) 
+func toLittleEndian(bytes []byte, length int) []byte{
+	le := make([]byte,length)
+	for i := len(le)-1;i >= 0;i--{
+		if bytes[i] != 0x00{
+			le = append(le, bytes[i])
+		}
+		le = append(le, 0x00)
 	}
 	return le
 }

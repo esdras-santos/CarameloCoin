@@ -12,13 +12,21 @@ func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
-	var t []byte
-	t = nil
-	fmt.Println(t)
+
 	s := []byte{0xfd,0xff,0x00}
-	var b uint
-	ReadVarint(s,&b)
-	fmt.Println(b)
+	for i := 0;i< len(s);i++{
+		fmt.Printf("%x ",s[i])
+	}
+	fmt.Println()
+	toE := toLittleEndian(s)
+	for i := 0;i< len(toE);i++{
+		fmt.Printf("%x ",toE[i])
+	}
+	fmt.Println()
+	toN := toLittleEndian(toE) 
+	for i := 0;i< len(toN);i++{
+		fmt.Printf("%x ",toN[i])
+	}
 }
 
 func ReadVarint(s []byte, buf *uint){
@@ -35,4 +43,12 @@ func ReadVarint(s []byte, buf *uint){
 	}else{
 		*buf = uint(i)
 	}
+}
+
+func toLittleEndian(bytes []byte) []byte{
+	var le []byte
+	for i := len(bytes)-1;i >= 0;i--{
+		le = append(le, bytes[i]) 
+	}
+	return le
 }

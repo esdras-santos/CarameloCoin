@@ -60,7 +60,7 @@ func ReadVarint(s []byte, buf *uint){
 func encodeVarint(i big.Int, buf *[]byte) {
 	var bignum, ok = new(big.Int).SetString("0x10000000000000000", 0)
 	ibytes := i.Bytes()
-	lebytes := toLittleEndian(ibytes) 
+	lebytes := toLittleEndian(ibytes,4) 
 	if !ok {
 		log.Panic("fails to create the big number")
 	}
@@ -81,7 +81,7 @@ func encodeVarint(i big.Int, buf *[]byte) {
 }
 
 func (tx Transaction) Serialize() []byte {
-	result := toLittleEndian(tx.Version.Bytes())
+	result := toLittleEndian(tx.Version.Bytes(),4)
 
 	lenIns := big.NewInt(int64(len(tx.Inputs)))
 	var lenInsEnc []byte
@@ -99,13 +99,15 @@ func (tx Transaction) Serialize() []byte {
 		result = append(result, tx.Outputs[i].Serialize()...)
 	}
 
-	result = append(result, toLittleEndian(tx.Locktime.Bytes())...)
+	result = append(result, toLittleEndian(tx.Locktime.Bytes(),4)...)
 
 	return result
 }
 
 func DeserializeTransaction(data []byte) Transaction {
 	var transaction Transaction
+
+
 
 	decoder := gob.NewDecoder(bytes.NewReader(data))
 	err := decoder.Decode(&transaction)
