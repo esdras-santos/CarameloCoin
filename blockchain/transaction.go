@@ -82,7 +82,7 @@ func encodeVarint(i big.Int, buf *[]byte) {
 
 func (tx Transaction) Serialize() []byte {
 	result := toLittleEndian(tx.Version.Bytes(),4)
-
+	result = append(result, toLittleEndian(tx.Locktime.Bytes(),4)...)
 	lenIns := big.NewInt(int64(len(tx.Inputs)))
 	var lenInsEnc []byte
 	encodeVarint(*lenIns,&lenInsEnc)
@@ -98,21 +98,61 @@ func (tx Transaction) Serialize() []byte {
 	for i := 0; i < len(tx.Outputs);i++{
 		result = append(result, tx.Outputs[i].Serialize()...)
 	}
-
-	result = append(result, toLittleEndian(tx.Locktime.Bytes(),4)...)
+	var tn int
+	if tx.Testnet == false{
+		tn = 0
+	}else if tx.Testnet == true{
+		tn = 1
+	}
+	result = append(result, byte(tn))
 
 	return result
 }
 
 func DeserializeTransaction(data []byte) Transaction {
-	var transaction Transaction
+	var txn Transaction
+	var lenIn uint
+	ReadVarint([]byte{data[9]},&lenIn)
+	var startIn int
+	if lenIn <= 253{
+		startIn = 10
+	}else if lenIn <= 254{
+		startIn = 11
+	}else if lenIn <= 255{
+		startIn = 12
+	}
+	
+	txn.Version.SetBytes(toLittleEndian(data[:5],4))
+	txn.Locktime.SetBytes(toLittleEndian(data[5:9],4))
+	for i := 0;i<int(lenIn);i++{
+		data, len := DeserializeInput(data[startIn:])
+		txn.Inputs = append(txn.Inputs, data)
+		startIn += len
+	}
 
+	var lenOut uint
+	ReadVarint([]byte{data[startIn+1]},&lenOut)
+	var startOut int
+	if lenOut <= 253{
+		startOut = startIn + 2
+	}else if lenOut <= 254{
+		startOut = startIn + 3
+	}else if lenOut <= 255{
+		startOut = startIn + 4
+	}
+	for i := 0;i<int(lenOut);i++{
+		data,len := DeserializeOutput(data[startOut:])
+		txn.Outputs = append(txn.Outputs, data)
+		startOut += len
+	}
 
+	if binary.BigEndian.Uint64(data[startOut+1:]) == 1{
+		txn.Testnet = true
+	}else if binary.BigEndian.Uint64(data[startOut+1:]) == 0{
+		txn.Testnet = false
+	}
 
-	decoder := gob.NewDecoder(bytes.NewReader(data))
-	err := decoder.Decode(&transaction)
-	Handle(err)
-	return transaction
+	return txn
 }
 
 func CoinbaseTx(to, data string) *Transaction {

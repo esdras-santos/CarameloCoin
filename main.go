@@ -13,20 +13,8 @@ func main(){
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
 
-	s := []byte{0xfd,0xff,0x00}
-	for i := 0;i< len(s);i++{
-		fmt.Printf("%x ",s[i])
-	}
-	fmt.Println()
-	toE := toLittleEndian(s)
-	for i := 0;i< len(toE);i++{
-		fmt.Printf("%x ",toE[i])
-	}
-	fmt.Println()
-	toN := toLittleEndian(toE) 
-	for i := 0;i< len(toN);i++{
-		fmt.Printf("%x ",toN[i])
-	}
+	s := []int{0,1,2,3,4,5,6}
+	fmt.Println(s[:3])
 }
 
 func ReadVarint(s []byte, buf *uint){

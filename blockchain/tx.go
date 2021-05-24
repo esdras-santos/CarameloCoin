@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"gochain/wallet"
@@ -27,12 +28,23 @@ func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
 	in.Sequence = sequence
 }
 func (in TxInput) Serialize() []byte{
-	result := toLittleEndian(in.PrevTxID,len(in.PrevTxID))
+	result := toLittleEndian(in.PrevTxID,32)
 	result = append(result, toLittleEndian(in.Out,4)...)
+	result = append(result, byte(len(in.ScriptSig)))
 	result = append(result, in.ScriptSig...)
 	result = append(result, toLittleEndian(in.Sequence,4)...)
 	
 	return result
+}
+
+func DeserializeInput(data []byte) (TxInput,int){
+	var txin TxInput
+	txin.PrevTxID = toLittleEndian(data[:33],32)
+	txin.Out = toLittleEndian(data[33:37],4)
+	scriptLen := binary.BigEndian.Uint64(data[37:38])
+	txin.ScriptSig = data[38:int(scriptLen)+39]
+	txin.Sequence = toLittleEndian(data[int(scriptLen)+39:int(scriptLen)+39+4],4)
+	return txin,(41+int(scriptLen))
 }
 
 func Script()[]byte{
@@ -46,17 +58,18 @@ type TxOutput struct{
 func (out TxOutput) Serialize()[]byte{
 	amount := out.Amount.Bytes()
 	result := toLittleEndian(amount,8)
+	result = append(result, byte(len(out.ScriptPubKey)))
 	result = append(result, out.ScriptPubKey...)
 
 	return result
 }
 
-func DeserializeOutputs(data []byte) TxOutputs{
-	var outputs TxOutputs
-	decode := gob.NewDecoder(bytes.NewReader(data))
-	err := decode.Decode(&outputs)
-	Handle(err)
-	return outputs
+func DeserializeOutput(data []byte) (TxOutput,int){
+	var txout TxOutput
+	txout.Amount.SetBytes(data[:8])
+	spkLen := binary.BigEndian.Uint64(data[9:10])
+	txout.ScriptPubKey = data[10:spkLen+10]
+	return txout,(9+int(spkLen))
 }
 
 func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
