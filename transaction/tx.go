@@ -3,8 +3,7 @@ package transaction
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/gob"
-	"fmt"
+	"gochain/script"
 	"gochain/wallet"
 	"math/big"
 )
@@ -30,38 +29,34 @@ func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
 func (in TxInput) Serialize() []byte{
 	result := toLittleEndian(in.PrevTxID,32)
 	result = append(result, toLittleEndian(in.Out,4)...)
-	result = append(result, byte(len(in.ScriptSig)))
 	result = append(result, in.ScriptSig...)
 	result = append(result, toLittleEndian(in.Sequence,4)...)
 	
 	return result
 }
-func (in TxInput) fetchTx(testnet bool) *Transaction{
+func (in TxInput) FetchTx(testnet bool) *Transaction{
 	fet := TxFetcher{}
 	return fet.Fetch(in.PrevTxID,testnet,false)
 }
-func (in TxInput) value(testnet bool) big.Int{
-	tx := in.fetchTx(false)
-	return *tx.Outputs[binary.BigEndian.Uint64(in.Out)].Amount
+func (in TxInput) Value(testnet bool) *big.Int{
+	tx := in.FetchTx(false)
+	return tx.Outputs[binary.BigEndian.Uint64(in.Out)].Amount
 }
 func (in TxInput) ScriptpubKey(testnet bool) []byte{
-	tx := in.fetchTx(testnet)
+	tx := in.FetchTx(testnet)
 	return tx.Outputs[binary.BigEndian.Uint64(in.Out)].ScriptPubKey
 }
 
 func DeserializeInput(data []byte) (TxInput,int){
 	var txin TxInput
+	var lensc int
 	txin.PrevTxID = toLittleEndian(data[:33],32)
 	txin.Out = toLittleEndian(data[33:37],4)
-	scriptLen := binary.BigEndian.Uint64(data[37:38])
-	txin.ScriptSig = data[38:int(scriptLen)+39]
-	txin.Sequence = toLittleEndian(data[int(scriptLen)+39:int(scriptLen)+39+4],4)
-	return txin,(41+int(scriptLen))
+	txin.ScriptSig,lensc = script.ScriptParser(data[37:])
+	txin.Sequence = toLittleEndian(data[lensc+33 : lensc+37],4)
+	return txin,len(data)
 }
 
-func Script()[]byte{
-	return nil
-}
 
 type TxOutput struct{
 	Amount *big.Int
@@ -78,14 +73,14 @@ func (out TxOutput) Serialize()[]byte{
 
 func DeserializeOutput(data []byte) (TxOutput,int){
 	var txout TxOutput
+	var lensc int
 	txout.Amount.SetBytes(data[:8])
-	spkLen := binary.BigEndian.Uint64(data[9:10])
-	txout.ScriptPubKey = data[10:spkLen+10]
-	return txout,(9+int(spkLen))
+	txout.ScriptPubKey,lensc = script.ScriptParser(data[8:])
+	return txout,lensc+8
 }
 
 func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
-	lockingHash := wallet.PublicKeyHash(in.PubKey)
+	lockingHash := wallet.PublicKeyHash(in.ScriptSig)
 	return bytes.Compare(lockingHash,pubKeyHash) == 0
 }
 
@@ -102,4 +97,8 @@ func toLittleEndian(bytes []byte, length int) []byte{
 		le = append(le, 0x00)
 	}
 	return le
+}
+
+func Script() []byte{
+	return nil
 }

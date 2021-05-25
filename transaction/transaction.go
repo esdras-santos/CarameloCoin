@@ -82,7 +82,7 @@ func encodeVarint(i big.Int, buf *[]byte) {
 
 func (tx Transaction) Serialize() []byte {
 	result := toLittleEndian(tx.Version.Bytes(),4)
-	result = append(result, toLittleEndian(tx.Locktime.Bytes(),4)...)
+	
 	lenIns := big.NewInt(int64(len(tx.Inputs)))
 	var lenInsEnc []byte
 	encodeVarint(*lenIns,&lenInsEnc)
@@ -98,26 +98,25 @@ func (tx Transaction) Serialize() []byte {
 	for i := 0; i < len(tx.Outputs);i++{
 		result = append(result, tx.Outputs[i].Serialize()...)
 	}
-	
-
+	result = append(result, toLittleEndian(tx.Locktime.Bytes(),4)...)
 	return result
 }
 
 func DeserializeTransaction(data []byte, testnet bool) Transaction {
 	var txn Transaction
 	var lenIn uint
-	ReadVarint([]byte{data[9]},&lenIn)
+	ReadVarint([]byte{data[5]},&lenIn)
 	var startIn int
 	if lenIn <= 253{
-		startIn = 10
+		startIn = 6
 	}else if lenIn <= 254{
-		startIn = 11
+		startIn = 7
 	}else if lenIn <= 255{
-		startIn = 12
+		startIn = 8
 	}
 	
 	txn.Version.SetBytes(toLittleEndian(data[:5],4))
-	txn.Locktime.SetBytes(toLittleEndian(data[5:9],4))
+	
 	for i := 0;i<int(lenIn);i++{
 		data, len := DeserializeInput(data[startIn:])
 		txn.Inputs = append(txn.Inputs, data)
@@ -140,27 +139,26 @@ func DeserializeTransaction(data []byte, testnet bool) Transaction {
 		startOut += len
 	}
 
+	txn.Locktime.SetBytes(toLittleEndian(data[startOut:],4))
+
 	txn.Testnet = testnet
 
 	return txn
 }
 
-func CoinbaseTx(to, data string) *Transaction {
-	if data == "" {
-		randData := make([]byte, 24)
-		_, err := rand.Read(randData)
-		Handle(err)
-		data = fmt.Sprintf("%x", randData)
+func (tx Transaction) Fee(testnet bool) *big.Int{
+	inputSum , outputSum, aux := big.NewInt(0), big.NewInt(0), big.NewInt(0)
+
+	for _,txin := range tx.Inputs{
+		inputSum = aux.Add(inputSum,txin.Value(false))
 	}
-
-	txin := TxInput{[]byte{}, -1, nil, []byte(data)}
-	txout := NewTXOutput(20, to)
-
-	tx := Transaction{nil, []TxInput{txin}, []TxOutput{*txout}}
-	//tx.ID = tx.Hash()
-
-	return &tx
+	for _,txout := range tx.Outputs{
+		outputSum = aux.Add(outputSum,txout.Amount)
+	}
+	return aux.Sub(inputSum,outputSum)
 }
+
+
 
 func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Transaction {
 	var inputs []TxInput
