@@ -1,4 +1,4 @@
-package blockchain
+package transaction
 
 import (
 	"bytes"
@@ -98,18 +98,12 @@ func (tx Transaction) Serialize() []byte {
 	for i := 0; i < len(tx.Outputs);i++{
 		result = append(result, tx.Outputs[i].Serialize()...)
 	}
-	var tn int
-	if tx.Testnet == false{
-		tn = 0
-	}else if tx.Testnet == true{
-		tn = 1
-	}
-	result = append(result, byte(tn))
+	
 
 	return result
 }
 
-func DeserializeTransaction(data []byte) Transaction {
+func DeserializeTransaction(data []byte, testnet bool) Transaction {
 	var txn Transaction
 	var lenIn uint
 	ReadVarint([]byte{data[9]},&lenIn)
@@ -146,11 +140,7 @@ func DeserializeTransaction(data []byte) Transaction {
 		startOut += len
 	}
 
-	if binary.BigEndian.Uint64(data[startOut+1:]) == 1{
-		txn.Testnet = true
-	}else if binary.BigEndian.Uint64(data[startOut+1:]) == 0{
-		txn.Testnet = false
-	}
+	txn.Testnet = testnet
 
 	return txn
 }

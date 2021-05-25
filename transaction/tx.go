@@ -1,4 +1,4 @@
-package blockchain
+package transaction
 
 import (
 	"bytes"
@@ -35,6 +35,18 @@ func (in TxInput) Serialize() []byte{
 	result = append(result, toLittleEndian(in.Sequence,4)...)
 	
 	return result
+}
+func (in TxInput) fetchTx(testnet bool) *Transaction{
+	fet := TxFetcher{}
+	return fet.Fetch(in.PrevTxID,testnet,false)
+}
+func (in TxInput) value(testnet bool) big.Int{
+	tx := in.fetchTx(false)
+	return *tx.Outputs[binary.BigEndian.Uint64(in.Out)].Amount
+}
+func (in TxInput) ScriptpubKey(testnet bool) []byte{
+	tx := in.fetchTx(testnet)
+	return tx.Outputs[binary.BigEndian.Uint64(in.Out)].ScriptPubKey
 }
 
 func DeserializeInput(data []byte) (TxInput,int){
@@ -77,8 +89,8 @@ func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
 	return bytes.Compare(lockingHash,pubKeyHash) == 0
 }
 
-func (out *TxOutput) IsLockedWithKey(scriptPubKey string) bool{
-	return out.scriptPubKey == scriptPubKey	
+func (out *TxOutput) IsLockedWithKey(scriptPubKey []byte) bool{
+	return bytes.Equal(out.ScriptPubKey,scriptPubKey)
 }
 
 func toLittleEndian(bytes []byte, length int) []byte{
