@@ -5,6 +5,7 @@ import (
 	//"gochain/cli"
 	"encoding/binary"
 	"fmt"
+	
 )
 
 func main(){
@@ -12,8 +13,8 @@ func main(){
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
 
-	s := []int{0,1,2,3,4,5,6}
-	fmt.Println(s[:3])
+	s:= 170
+	fmt.Printf("%x",s)
 }
 
 func ReadVarint(s []byte, buf *uint){
