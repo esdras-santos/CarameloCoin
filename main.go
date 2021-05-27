@@ -5,16 +5,29 @@ import (
 	//"gochain/cli"
 	"encoding/binary"
 	"fmt"
-	
+	"math/big"
 )
+
 
 func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
 
-	s:= 170
-	fmt.Printf("%x",s)
+	count := big.NewInt(0)
+	count.Add(count,big.NewInt(5))
+	fmt.Println(count)
+}
+
+func mapkey(m map[byte]string, value string) (key byte, ok bool) {
+	for k, v := range m {
+	  if v == value { 
+		key = k
+		ok = true
+		return
+	  }
+	}
+	return
 }
 
 func ReadVarint(s []byte, buf *uint){
