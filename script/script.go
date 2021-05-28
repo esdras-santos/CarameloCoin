@@ -12,7 +12,7 @@ import (
 
 type Script struct {
 	stack *Stack
-	cmd []byte
+	cmd [][]byte
 }
 
 var OP_CODE_FUNCTIONS = map[byte]string{
@@ -29,18 +29,18 @@ var OP_CODE_FUNCTIONS = map[byte]string{
 
 
 //if is between 0x01 and 0x4b this is an element not an opcode
-func (scr *Script) ScriptParser(s []byte) ([]byte, uint) {
+func (scr *Script) ScriptParser(s []byte) ([]byte, int) {
 	length := len(s) 
 	cmd := []byte{}
-	count := big.NewInt(0)
+	count := 0
 	
-	for count.Cmp(big.NewInt(int64(length))) < 0{
+	for count < length{
 		current := s[0]
-		count.Add(count, big.NewInt(1))
+		count++
 		if current >= 1 && current <= 75{
 			n := current
 			cmd = append(cmd, n)
-			count.Add(count,big.NewInt(int64(n)))
+			count += int(n)
 		}else if current == 76{
 			
 		}
@@ -50,10 +50,27 @@ func (scr *Script) ScriptParser(s []byte) ([]byte, uint) {
 func (src *Script) Serialize() []byte{
 	var result []byte
 	for _,cmd := range src.cmd{
-		if cmd < 75{
-			result = append(result, cmd)
+		if _,ok := OP_CODE_FUNCTIONS[cmd[0]]; ok {
+			result = append(result, cmd[0])
+		}else{
+			length := len(cmd)
+			if length < 75{
+				result = append(result, byte(length))
+			}else if length > 75 && length < 0x100{
+				result = append(result, 76)
+				result = append(result, transaction.ToLittleEndian(length,1))
+			}else if length >= 0x100 && length <= 520{
+				result = append(result, 77)
+				result = append(result, transaction.ToLittleEndian(length,2))
+			}else{
+				log.Panic("too long an cmd")
+			}
+			result = append(result, cmd...)
 		}
 	}
+	total := len(result)
+	result = append([]byte{byte(total)},result...)
+	return result
 }
 
 func opDup(stack *Stack) bool {

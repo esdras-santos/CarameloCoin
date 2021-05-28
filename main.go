@@ -5,7 +5,7 @@ import (
 	//"gochain/cli"
 	"encoding/binary"
 	"fmt"
-	"math/big"
+
 )
 
 
@@ -14,9 +14,8 @@ func main(){
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
 
-	count := big.NewInt(0)
-	count.Add(count,big.NewInt(5))
-	fmt.Println(count)
+
+	fmt.Println(0x100)
 }
 
 func mapkey(m map[byte]string, value string) (key byte, ok bool) {

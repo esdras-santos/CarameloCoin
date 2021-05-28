@@ -27,10 +27,10 @@ func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
 	in.Sequence = sequence
 }
 func (in TxInput) Serialize() []byte{
-	result := toLittleEndian(in.PrevTxID,32)
-	result = append(result, toLittleEndian(in.Out,4)...)
+	result := ToLittleEndian(in.PrevTxID,32)
+	result = append(result, ToLittleEndian(in.Out,4)...)
 	result = append(result, in.ScriptSig...)
-	result = append(result, toLittleEndian(in.Sequence,4)...)
+	result = append(result, ToLittleEndian(in.Sequence,4)...)
 	
 	return result
 }
@@ -50,10 +50,10 @@ func (in TxInput) ScriptpubKey(testnet bool) []byte{
 func DeserializeInput(data []byte) (TxInput,int){
 	var txin TxInput
 	var lensc int
-	txin.PrevTxID = toLittleEndian(data[:33],32)
-	txin.Out = toLittleEndian(data[33:37],4)
+	txin.PrevTxID = ToLittleEndian(data[:33],32)
+	txin.Out = ToLittleEndian(data[33:37],4)
 	txin.ScriptSig,lensc = script.ScriptParser(data[37:])
-	txin.Sequence = toLittleEndian(data[lensc+33 : lensc+37],4)
+	txin.Sequence = ToLittleEndian(data[lensc+33 : lensc+37],4)
 	return txin,len(data)
 }
 
@@ -64,7 +64,7 @@ type TxOutput struct{
 }
 func (out TxOutput) Serialize()[]byte{
 	amount := out.Amount.Bytes()
-	result := toLittleEndian(amount,8)
+	result := ToLittleEndian(amount,8)
 	result = append(result, byte(len(out.ScriptPubKey)))
 	result = append(result, out.ScriptPubKey...)
 
@@ -88,7 +88,7 @@ func (out *TxOutput) IsLockedWithKey(scriptPubKey []byte) bool{
 	return bytes.Equal(out.ScriptPubKey,scriptPubKey)
 }
 
-func toLittleEndian(bytes []byte, length int) []byte{
+func ToLittleEndian(bytes []byte, length int) []byte{
 	le := make([]byte,length)
 	for i := len(le)-1;i >= 0;i--{
 		if bytes[i] != 0x00{
