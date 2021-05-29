@@ -6,6 +6,7 @@ import (
 	"gochain/script"
 	"gochain/wallet"
 	"math/big"
+	"gochain/utils"
 )
 
 
@@ -27,10 +28,10 @@ func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
 	in.Sequence = sequence
 }
 func (in TxInput) Serialize() []byte{
-	result := ToLittleEndian(in.PrevTxID,32)
-	result = append(result, ToLittleEndian(in.Out,4)...)
+	result := utils.ToLittleEndian(in.PrevTxID,32)
+	result = append(result, utils.ToLittleEndian(in.Out,4)...)
 	result = append(result, in.ScriptSig...)
-	result = append(result, ToLittleEndian(in.Sequence,4)...)
+	result = append(result, utils.ToLittleEndian(in.Sequence,4)...)
 	
 	return result
 }
@@ -49,11 +50,12 @@ func (in TxInput) ScriptpubKey(testnet bool) []byte{
 
 func DeserializeInput(data []byte) (TxInput,int){
 	var txin TxInput
-	var lensc int
-	txin.PrevTxID = ToLittleEndian(data[:33],32)
-	txin.Out = ToLittleEndian(data[33:37],4)
-	txin.ScriptSig,lensc = script.ScriptParser(data[37:])
-	txin.Sequence = ToLittleEndian(data[lensc+33 : lensc+37],4)
+	var lensc uint
+	txin.PrevTxID = utils.ToLittleEndian(data[:33],32)
+	txin.Out = utils.ToLittleEndian(data[33:37],4)
+	sc := script.Script{}
+	txin.ScriptSig,lensc = sc.ScriptParser(data[37:])
+	txin.Sequence = utils.ToLittleEndian(data[lensc+33 : lensc+37],4)
 	return txin,len(data)
 }
 
@@ -64,18 +66,19 @@ type TxOutput struct{
 }
 func (out TxOutput) Serialize()[]byte{
 	amount := out.Amount.Bytes()
-	result := ToLittleEndian(amount,8)
+	result := utils.ToLittleEndian(amount,8)
 	result = append(result, byte(len(out.ScriptPubKey)))
 	result = append(result, out.ScriptPubKey...)
 
 	return result
 }
 
-func DeserializeOutput(data []byte) (TxOutput,int){
+func DeserializeOutput(data []byte) (TxOutput,uint){
 	var txout TxOutput
-	var lensc int
+	var lensc uint
 	txout.Amount.SetBytes(data[:8])
-	txout.ScriptPubKey,lensc = script.ScriptParser(data[8:])
+	sc := script.Script{}
+	txout.ScriptPubKey,lensc = sc.ScriptParser(data[8:])
 	return txout,lensc+8
 }
 
@@ -88,16 +91,7 @@ func (out *TxOutput) IsLockedWithKey(scriptPubKey []byte) bool{
 	return bytes.Equal(out.ScriptPubKey,scriptPubKey)
 }
 
-func ToLittleEndian(bytes []byte, length int) []byte{
-	le := make([]byte,length)
-	for i := len(le)-1;i >= 0;i--{
-		if bytes[i] != 0x00{
-			le = append(le, bytes[i])
-		}
-		le = append(le, 0x00)
-	}
-	return le
-}
+
 
 func Script() []byte{
 	return nil

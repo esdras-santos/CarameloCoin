@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"strings"
 
+	"gochain/utils"
 	"gochain/wallet"
 )
 
@@ -41,51 +42,15 @@ func (tx *Transaction) Id() []byte{
 	return tx.hash()
 }
 
-func ReadVarint(s []byte, buf *uint){
-	i := s[0]
-	if i == 0xfd{
-		a := binary.LittleEndian.Uint16(s[1:3])
-		*buf = uint(a)
-	}else if i == 0xfe{
-		a := binary.LittleEndian.Uint32(s[1:5])
-		*buf = uint(a)
-	}else if i == 0xff{
-		a := binary.LittleEndian.Uint64(s[1:9])
-		*buf = uint(a)
-	}else{
-		*buf = uint(i)
-	}
-}
 
-func encodeVarint(i big.Int, buf *[]byte) {
-	var bignum, ok = new(big.Int).SetString("0x10000000000000000", 0)
-	ibytes := i.Bytes()
-	lebytes := toLittleEndian(ibytes,4) 
-	if !ok {
-		log.Panic("fails to create the big number")
-	}
-	if cmp := i.Cmp(big.NewInt(0xfd));cmp < 0 {
-		*buf = ibytes
-	}else if cmp := i.Cmp(big.NewInt(0x10000));cmp < 0{
-		*buf = lebytes
-		*buf = append([]byte{0xfd},*buf...) 
-	}else if cmp := i.Cmp(big.NewInt(0x100000000));cmp < 0{
-		*buf = lebytes
-		*buf = append([]byte{0xfe},*buf...)
-	}else if cmp := i.Cmp(bignum);cmp < 0{
-		*buf = lebytes
-		*buf = append([]byte{0xff},*buf...)
-	}else{
-		log.Panic("integer too large")
-	}
-}
+
 
 func (tx Transaction) Serialize() []byte {
-	result := toLittleEndian(tx.Version.Bytes(),4)
+	result := utils.ToLittleEndian(tx.Version.Bytes(),4)
 	
 	lenIns := big.NewInt(int64(len(tx.Inputs)))
 	var lenInsEnc []byte
-	encodeVarint(*lenIns,&lenInsEnc)
+	utils.EncodeVarint(*lenIns,&lenInsEnc)
 	result = append(result, lenInsEnc...)
 	for i := 0; i < len(tx.Inputs);i++{
 		result = append(result, tx.Inputs[i].Serialize()...)
@@ -93,19 +58,19 @@ func (tx Transaction) Serialize() []byte {
 
 	lenOuts := big.NewInt(int64(len(tx.Outputs)))
 	var lenOutsEnc []byte
-	encodeVarint(*lenOuts,&lenOutsEnc)
+	utils.EncodeVarint(*lenOuts,&lenOutsEnc)
 	result = append(result, lenOutsEnc...)
 	for i := 0; i < len(tx.Outputs);i++{
 		result = append(result, tx.Outputs[i].Serialize()...)
 	}
-	result = append(result, toLittleEndian(tx.Locktime.Bytes(),4)...)
+	result = append(result, utils.ToLittleEndian(tx.Locktime.Bytes(),4)...)
 	return result
 }
 
 func DeserializeTransaction(data []byte, testnet bool) Transaction {
 	var txn Transaction
 	var lenIn uint
-	ReadVarint([]byte{data[5]},&lenIn)
+	utils.ReadVarint([]byte{data[5]},&lenIn)
 	var startIn int
 	if lenIn <= 253{
 		startIn = 6
@@ -115,7 +80,7 @@ func DeserializeTransaction(data []byte, testnet bool) Transaction {
 		startIn = 8
 	}
 	
-	txn.Version.SetBytes(toLittleEndian(data[:5],4))
+	txn.Version.SetBytes(utils.ToLittleEndian(data[:5],4))
 	
 	for i := 0;i<int(lenIn);i++{
 		data, len := DeserializeInput(data[startIn:])
@@ -124,7 +89,7 @@ func DeserializeTransaction(data []byte, testnet bool) Transaction {
 	}
 
 	var lenOut uint
-	ReadVarint([]byte{data[startIn+1]},&lenOut)
+	utils.ReadVarint([]byte{data[startIn+1]},&lenOut)
 	var startOut int
 	if lenOut <= 253{
 		startOut = startIn + 2
@@ -139,7 +104,7 @@ func DeserializeTransaction(data []byte, testnet bool) Transaction {
 		startOut += len
 	}
 
-	txn.Locktime.SetBytes(toLittleEndian(data[startOut:],4))
+	txn.Locktime.SetBytes(utils.ToLittleEndian(data[startOut:],4))
 
 	txn.Testnet = testnet
 

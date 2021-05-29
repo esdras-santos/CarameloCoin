@@ -2,7 +2,7 @@ package script
 
 import (
 	"crypto/sha256"
-	"gochain/transaction"
+	"gochain/utils"
 	"log"
 	"math/big"
 
@@ -29,23 +29,47 @@ var OP_CODE_FUNCTIONS = map[byte]string{
 
 
 //if is between 0x01 and 0x4b this is an element not an opcode
-func (scr *Script) ScriptParser(s []byte) ([]byte, int) {
-	length := len(s) 
-	cmd := []byte{}
+func (scr *Script) ScriptParser(s []byte) ([][]byte, uint) {
+	var length uint
+	utils.ReadVarint(s,&length)
+	cmd := [][]byte{}
 	count := 0
-	
-	for count < length{
-		current := s[0]
+	start := 0
+	if length >= 0xfd{
+		start = 3
+	}else if length >= 0xfe{
+		start = 4
+	}else if length >= 0xff{
+		start = 5
+	}else{
+		start = 1
+	}
+	for count < int(length){
+		current := s[start]
 		count++
 		if current >= 1 && current <= 75{
 			n := current
-			cmd = append(cmd, n)
+			cmd = append(cmd, s[start:n+1])
 			count += int(n)
+			start += count
 		}else if current == 76{
-			
+			dataLen := current
+			cmd = append(cmd, s[start:dataLen+1])
+			count += int(dataLen)+1
+			start += count
+		}else if current == 77{
+			dataLen := s[start+1]
+			cmd = append(cmd, s[start:dataLen+1])
+			count += int(dataLen)+2
+			start += count
+		}else{
+			opcode := current
+			cmd = append(cmd, []byte{opcode})
+			start++
 		}
+
 	}
-	return nil, length
+	return cmd, length
 }
 func (src *Script) Serialize() []byte{
 	var result []byte
@@ -55,21 +79,23 @@ func (src *Script) Serialize() []byte{
 		}else{
 			length := len(cmd)
 			if length < 75{
-				result = append(result, byte(length))
+				result = append([]byte{byte(length)},result...)
 			}else if length > 75 && length < 0x100{
 				result = append(result, 76)
-				result = append(result, transaction.ToLittleEndian(length,1))
+				result = append(utils.ToLittleEndian([]byte{byte(length)},1),result...)
 			}else if length >= 0x100 && length <= 520{
 				result = append(result, 77)
-				result = append(result, transaction.ToLittleEndian(length,2))
+				result = append(utils.ToLittleEndian([]byte{byte(length)},2),result...)
 			}else{
 				log.Panic("too long an cmd")
 			}
 			result = append(result, cmd...)
 		}
 	}
-	total := len(result)
-	result = append([]byte{byte(total)},result...)
+	total := big.NewInt(int64(len(result)))
+	buf := []byte{}
+	utils.EncodeVarint(*total,&buf)
+	result = append(buf,result...)
 	return result
 }
 
