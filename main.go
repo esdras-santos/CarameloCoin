@@ -3,9 +3,11 @@ package main
 import (
 	//"os"
 	//"gochain/cli"
+
 	"encoding/binary"
 	"fmt"
 
+	"golang.org/x/crypto/ripemd160"
 )
 
 
@@ -14,8 +16,16 @@ func main(){
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
 
-
-	fmt.Println(0x100)
+	t := [][]int{}
+	t = append(t, []int{1,2})
+	t = append(t, []int{3,4})
+	hasher := ripemd160.New()
+	_,err := hasher.Write([]byte{byte(t[1][0])})
+	if err != nil{
+		print(err)
+	}
+	hash := hasher.Sum(nil)
+	fmt.Printf("%x",hash)
 }
 
 func mapkey(m map[byte]string, value string) (key byte, ok bool) {

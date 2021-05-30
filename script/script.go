@@ -11,8 +11,8 @@ import (
 
 
 type Script struct {
-	stack *Stack
-	cmd [][]byte
+	Stack *Stack
+	Cmd [][]byte
 }
 
 var OP_CODE_FUNCTIONS = map[byte]string{
@@ -32,7 +32,7 @@ var OP_CODE_FUNCTIONS = map[byte]string{
 func (scr *Script) ScriptParser(s []byte) ([][]byte, uint) {
 	var length uint
 	utils.ReadVarint(s,&length)
-	cmd := [][]byte{}
+	Cmd := [][]byte{}
 	count := 0
 	start := 0
 	if length >= 0xfd{
@@ -49,35 +49,35 @@ func (scr *Script) ScriptParser(s []byte) ([][]byte, uint) {
 		count++
 		if current >= 1 && current <= 75{
 			n := current
-			cmd = append(cmd, s[start:n+1])
+			Cmd = append(Cmd, s[start:n+1])
 			count += int(n)
 			start += count
 		}else if current == 76{
 			dataLen := current
-			cmd = append(cmd, s[start:dataLen+1])
+			Cmd = append(Cmd, s[start:dataLen+1])
 			count += int(dataLen)+1
 			start += count
 		}else if current == 77{
 			dataLen := s[start+1]
-			cmd = append(cmd, s[start:dataLen+1])
+			Cmd = append(Cmd, s[start:dataLen+1])
 			count += int(dataLen)+2
 			start += count
 		}else{
 			opcode := current
-			cmd = append(cmd, []byte{opcode})
+			Cmd = append(Cmd, []byte{opcode})
 			start++
 		}
 
 	}
-	return cmd, length
+	return Cmd, length
 }
 func (src *Script) Serialize() []byte{
 	var result []byte
-	for _,cmd := range src.cmd{
-		if _,ok := OP_CODE_FUNCTIONS[cmd[0]]; ok {
-			result = append(result, cmd[0])
+	for _,Cmd := range src.Cmd{
+		if _,ok := OP_CODE_FUNCTIONS[Cmd[0]]; ok {
+			result = append(result, Cmd[0])
 		}else{
-			length := len(cmd)
+			length := len(Cmd)
 			if length < 75{
 				result = append([]byte{byte(length)},result...)
 			}else if length > 75 && length < 0x100{
@@ -87,9 +87,9 @@ func (src *Script) Serialize() []byte{
 				result = append(result, 77)
 				result = append(utils.ToLittleEndian([]byte{byte(length)},2),result...)
 			}else{
-				log.Panic("too long an cmd")
+				log.Panic("too long an Cmd")
 			}
-			result = append(result, cmd...)
+			result = append(result, Cmd...)
 		}
 	}
 	total := big.NewInt(int64(len(result)))
@@ -99,8 +99,8 @@ func (src *Script) Serialize() []byte{
 	return result
 }
 
-func opDup(stack *Stack) bool {
-	if stack.Size() < 1 {
+func OpDup(stack *Stack) bool {
+	if stack.Empty() {
 		return false
 	}
 	opcode, err := stack.Front()
@@ -109,7 +109,7 @@ func opDup(stack *Stack) bool {
 	return true
 }
 
-func opHash256(stack *Stack) bool{
+func OpHash256(stack *Stack) bool{
 	if stack.Size() < 1{
 		return false
 	}
@@ -118,10 +118,10 @@ func opHash256(stack *Stack) bool{
 	stack.Pop()
 	hash := sha256.Sum256(data) 
 	stack.Push(hash[:])
-	return false
+	return true
 }
 
-func opHash160(stack *Stack) bool{
+func OpHash160(stack *Stack) bool{
 	if stack.Size() < 1{
 		return false
 	}

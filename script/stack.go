@@ -1,41 +1,46 @@
 package script
 
 import (
-	"container/list"	
-	"fmt"
+    "fmt"
+    "sync"
 )
 
-
 type Stack struct {
-	stack *list.List
+    stack [][]byte
+    lock  sync.RWMutex
 }
 
 func (s *Stack) Push(opcode []byte) {
-	s.stack.PushFront(opcode)
+    s.lock.Lock()
+    defer s.lock.Unlock()
+    s.stack = append(s.stack, opcode)
 }
 
 func (s *Stack) Pop() error {
-	if s.stack.Len() > 0 {
-		opcode := s.stack.Front()
-		s.stack.Remove(opcode)
-	}
-	return fmt.Errorf("Pop Error: Queue is empty")
+    len := len(s.stack)
+    if len > 0 {
+        s.lock.Lock()
+        defer s.lock.Unlock()
+        s.stack = s.stack[:len-1]
+        return nil
+    }
+    return fmt.Errorf("Pop Error: Queue is empty")
 }
 
 func (s *Stack) Front() ([]byte, error) {
-	if s.stack.Len() > 0 {
-		if opcode, ok := s.stack.Front().Value.([]byte); ok {
-			return opcode, nil
-		}
-		return nil, fmt.Errorf("Peep Error: Queue Datatype is incorrect")
-	}
-	return nil, fmt.Errorf("Peep Error: Queue is empty")
+    len := len(s.stack)
+    if len > 0 {
+        s.lock.Lock()
+        defer s.lock.Unlock()
+        return s.stack[len-1], nil
+    }
+    return nil, fmt.Errorf("Peep Error: Queue is empty")
 }
 
 func (s *Stack) Size() int {
-	return s.stack.Len()
+    return len(s.stack)
 }
 
 func (s *Stack) Empty() bool {
-	return s.stack.Len() == 0
+    return len(s.stack) == 0
 }
