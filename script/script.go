@@ -10,23 +10,44 @@ import (
 )
 
 
+
+// receives an byte and return a function
+var OP_CODE_FUNCTIONS = map[byte]interface{}{
+	// 0x00:"op_0",
+	// 0x51:"op_1",
+	// 0x60:"op_16",
+	0x76: OP_DUP,
+	// 0x93:"op_add",
+	0xa9: OP_HASH160,
+	0xaa: OP_HASH256,
+	// 0xac:"op_checksig",
+}
+
 type Script struct {
 	Stack *Stack
 	Cmd [][]byte
 }
 
-var OP_CODE_FUNCTIONS = map[byte]string{
-	0x00:"op_0",
-	0x51:"op_1",
-	0x60:"op_16",
-	0x76:"op_dup",
-	0x93:"op_add",
-	0xa9:"op_hash160",
-	0xaa:"op_hash256",
-	0xac:"op_checksig",
+func (s Script) Evaluate() bool{
+	cmds  := s.Cmd[:]
+	for len(cmds) > 0{
+		cmd := cmds[0]
+		if _,ok := OP_CODE_FUNCTIONS[cmd[0]]; ok {
+			operation := OP_CODE_FUNCTIONS[cmd[0]]
+			if cmd[0] == 99 || cmd[0] == 100{
+				if !operation.(func(*Stack)bool)(s.Stack){
+					
+				}
+			}
+		}
+	}
 }
 
-
+func (scr Script) Add(other Script) Script {
+	var s Script
+	s.Cmd = append(scr.Cmd, other.Cmd...) 
+	return s
+}
 
 //if is between 0x01 and 0x4b this is an element not an opcode
 func (scr *Script) ScriptParser(s []byte) ([][]byte, uint) {
@@ -36,11 +57,11 @@ func (scr *Script) ScriptParser(s []byte) ([][]byte, uint) {
 	count := 0
 	start := 0
 	if length >= 0xfd{
-		start = 3
+		start = 2
 	}else if length >= 0xfe{
-		start = 4
+		start = 3
 	}else if length >= 0xff{
-		start = 5
+		start = 4
 	}else{
 		start = 1
 	}
@@ -99,7 +120,7 @@ func (src *Script) Serialize() []byte{
 	return result
 }
 
-func OpDup(stack *Stack) bool {
+func OP_DUP(stack *Stack) bool {
 	if stack.Empty() {
 		return false
 	}
@@ -109,7 +130,7 @@ func OpDup(stack *Stack) bool {
 	return true
 }
 
-func OpHash256(stack *Stack) bool{
+func OP_HASH256(stack *Stack) bool{
 	if stack.Size() < 1{
 		return false
 	}
@@ -121,7 +142,7 @@ func OpHash256(stack *Stack) bool{
 	return true
 }
 
-func OpHash160(stack *Stack) bool{
+func OP_HASH160(stack *Stack) bool{
 	if stack.Size() < 1{
 		return false
 	}

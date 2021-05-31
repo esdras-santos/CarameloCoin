@@ -14,18 +14,18 @@ var stack *script.Stack = new(script.Stack)
 // var cmd = [][]byte{{0x01},{0x02}}
 // var script = script.Script{&stack,cmd}
 
-func TestScriptParser(t *testing.T){
+func TestSerialize(t *testing.T){
 
 }
 
-func TestSerialize(t *testing.T){
+func TestScriptParser(t *testing.T){
 
 }
 
 func TestOpDup(t *testing.T){
 	stack.Push([]byte{0x01})
 	if stack.Size() != 1{
-		t.Error("fail")
+		t.Error("wrong size")
 	}
 	if  front, _ := stack.Front(); !bytes.Equal(front,[]byte{0x01}){
 		t.Error("fail")

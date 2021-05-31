@@ -7,25 +7,32 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"golang.org/x/crypto/ripemd160"
 )
 
+var FUNCTIONS = map[int]interface{}{
+	// 0x00:"op_0",
+	// 0x51:"op_1",
+	// 0x60:"op_16",
+	1: Add,
+	// 0x93:"op_add",
+	// 0xa9:"op_hash160",
+	// 0xaa:"op_hash256",
+	// 0xac:"op_checksig",
+}
+
+func Add(a int,b int) int{
+	return a+b
+}
 
 func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
+	
+	
 
-	t := [][]int{}
-	t = append(t, []int{1,2})
-	t = append(t, []int{3,4})
-	hasher := ripemd160.New()
-	_,err := hasher.Write([]byte{byte(t[1][0])})
-	if err != nil{
-		print(err)
-	}
-	hash := hasher.Sum(nil)
-	fmt.Printf("%x",hash)
+	
+	fmt.Printf("%d",0xa9)
 }
 
 func mapkey(m map[byte]string, value string) (key byte, ok bool) {
