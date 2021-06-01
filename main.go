@@ -28,11 +28,11 @@ func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
-	
-	
+	a := [][]int{{1,2},{3,4},{5,6}}
+	t := append(a[:0],a[1:]...)
 
 	
-	fmt.Printf("%d",0xa9)
+	fmt.Println(t)
 }
 
 func mapkey(m map[byte]string, value string) (key byte, ok bool) {

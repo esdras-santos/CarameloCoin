@@ -1,6 +1,7 @@
 package script
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"gochain/utils"
 	"log"
@@ -9,18 +10,16 @@ import (
 	"golang.org/x/crypto/ripemd160"
 )
 
-
-
 // receives an byte and return a function
 var OP_CODE_FUNCTIONS = map[byte]interface{}{
-	// 0x00:"op_0",
+	0x00: OP_0,
 	// 0x51:"op_1",
 	// 0x60:"op_16",
 	0x76: OP_DUP,
 	// 0x93:"op_add",
 	0xa9: OP_HASH160,
 	0xaa: OP_HASH256,
-	// 0xac:"op_checksig",
+	0xac: OP_CHECKSIG,
 }
 
 type Script struct {
@@ -28,19 +27,46 @@ type Script struct {
 	Cmd [][]byte
 }
 
-func (s Script) Evaluate() bool{
+func (s *Script) Evaluate(z []byte) bool{
 	cmds  := s.Cmd[:]
+	stack := Stack{}
+	altstack := Stack{}
 	for len(cmds) > 0{
-		cmd := cmds[0]
-		if _,ok := OP_CODE_FUNCTIONS[cmd[0]]; ok {
-			operation := OP_CODE_FUNCTIONS[cmd[0]]
-			if cmd[0] == 99 || cmd[0] == 100{
-				if !operation.(func(*Stack)bool)(s.Stack){
-					
+		cmd := append(cmds[:0],cmds[1:]...)
+		if _,ok := OP_CODE_FUNCTIONS[cmd[0][0]]; ok {
+			operation := OP_CODE_FUNCTIONS[cmd[0][0]]
+			if 99 <= cmd[0][0] && cmd[0][0] <= 100{
+				if !operation.(func(Stack,[][]byte)bool)(stack,cmds){
+					log.Printf("bad op: %x",cmd[0])
+					return false
+				}
+			}else if 107 <= cmd[0][0] && cmd[0][0] <= 108 {
+				if !operation.(func(Stack,Stack)bool)(stack,altstack){
+					log.Printf("bad op: %x",cmd[0])
+					return false
+				}
+			}else if 172 <= cmd[0][0] && cmd[0][0] <= 175 {
+				if !operation.(func(Stack,[]byte)bool)(stack,z){
+					log.Printf("bad op: %x",cmd[0])
+					return false
+				}
+			}else{
+				if !operation.(func(Stack)bool)(stack){
+					log.Printf("bad op: %x",cmd[0])
+					return false
 				}
 			}
+		}else{
+			stack.Push(cmd[0])
 		}
 	}
+	if stack.Empty(){
+		return false
+	}
+	if c,_ := stack.Front();bytes.Equal(c,[]byte{}){
+		return false
+	}
+	return true
 }
 
 func (scr Script) Add(other Script) Script {
@@ -118,6 +144,23 @@ func (src *Script) Serialize() []byte{
 	utils.EncodeVarint(*total,&buf)
 	result = append(buf,result...)
 	return result
+}
+
+func OP_0(stack *Stack)bool{
+	stack.Push([]byte{0})
+	return true
+}
+
+func OP_CHECKSIG(stack *Stack) bool{
+	if stack.Size() < 2{
+		return false
+	}
+	pubkey,err := stack.Front()
+	handle(err)
+	err = stack.Pop()
+	handle(err)
+	
+	return true
 }
 
 func OP_DUP(stack *Stack) bool {
