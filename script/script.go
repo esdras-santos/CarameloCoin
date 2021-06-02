@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"gochain/utils"
+	"gochain/wallet"
 	"log"
 	"math/big"
 
@@ -27,7 +28,11 @@ type Script struct {
 	Cmd [][]byte
 }
 
-func (s *Script) Evaluate(z []byte) bool{
+/*before you pass the argument "transaction" you have to convert the transaction 
+to string like that "dataToVerify := fmt.Sprintf("%x\n", transaction)" and then cast 
+to array of bytes and pass as argument like that "script.Script.Evaluate([]byte(dataToVerify))"
+*/
+func (s *Script) Evaluate(transaction []byte) bool{
 	cmds  := s.Cmd[:]
 	stack := Stack{}
 	altstack := Stack{}
@@ -46,7 +51,7 @@ func (s *Script) Evaluate(z []byte) bool{
 					return false
 				}
 			}else if 172 <= cmd[0][0] && cmd[0][0] <= 175 {
-				if !operation.(func(Stack,[]byte)bool)(stack,z){
+				if !operation.(func(Stack,[]byte)bool)(stack,transaction){
 					log.Printf("bad op: %x",cmd[0])
 					return false
 				}
@@ -69,6 +74,7 @@ func (s *Script) Evaluate(z []byte) bool{
 	return true
 }
 
+//this is called before the Evaluate() function
 func (scr Script) Add(other Script) Script {
 	var s Script
 	s.Cmd = append(scr.Cmd, other.Cmd...) 
@@ -151,7 +157,7 @@ func OP_0(stack *Stack)bool{
 	return true
 }
 
-func OP_CHECKSIG(stack *Stack) bool{
+func OP_CHECKSIG(stack *Stack, transaction []byte) bool{
 	if stack.Size() < 2{
 		return false
 	}
@@ -159,7 +165,18 @@ func OP_CHECKSIG(stack *Stack) bool{
 	handle(err)
 	err = stack.Pop()
 	handle(err)
-	
+	signature,err := stack.Front()
+	handle(err)
+	leng := len(signature)
+	signature = append(signature[:leng-1],signature[leng:]...)
+	err = stack.Pop()
+	handle(err)
+	if wallet.VerifySignature(transaction,pubkey,signature){
+		stack.Push([]byte{1})
+	}else{
+		stack.Push([]byte{0})
+		return false
+	}
 	return true
 }
 

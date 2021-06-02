@@ -195,13 +195,15 @@ func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTXs map[string]Transac
 	}
 }
 
-func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
+
+func (tx *Transaction) VerifyTransaction(prevTXs map[string]Transaction) bool {
 	if tx.IsCoinbase() {
 		return true
 	}
 
 	for _, in := range tx.Inputs {
-		if prevTXs[hex.EncodeToString(in.ID)].ID == nil {
+		prevtxs := prevTXs[hex.EncodeToString(in.ID)] 
+		if prevtxs.Id() == nil {
 			log.Panic("Previous transaction not correct")
 		}
 	}
@@ -211,8 +213,8 @@ func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
 
 	for inId, in := range tx.Inputs {
 		prevTx := prevTXs[hex.EncodeToString(in.ID)]
-		txCopy.Inputs[inId].Signature = nil
-		txCopy.Inputs[inId].PubKey = prevTx.Outputs[in.Out].PubKeyHash
+		txCopy.Inputs[inId].ScriptSig = nil
+		scriptpubKey := prevTx.Outputs[binary.BigEndian.Uint64(in.Out)].ScriptPubKey
 
 		r := big.Int{}
 		s := big.Int{}

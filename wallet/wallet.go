@@ -6,7 +6,9 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"log"
+	"math/big"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -68,6 +70,32 @@ func PublicKeyHash(pubKey []byte) []byte{
 	publicRipMD := hasher.Sum(nil)
 	return publicRipMD
 }
+
+func VerifySignature(transaction ,pubkey, sig []byte) bool{
+	curve := elliptic.P256()
+
+	r := big.Int{}
+	s := big.Int{}
+
+	sigLen := len(sig)
+	r.SetBytes(sig[:(sigLen / 2)])
+	s.SetBytes(sig[(sigLen / 2):])
+
+	x := big.Int{}
+	y := big.Int{}
+	keyLen := len(pubkey)
+	x.SetBytes(pubkey[:(keyLen / 2)])
+	y.SetBytes(pubkey[(keyLen / 2):])
+
+	dataToVerify := fmt.Sprintf("%x\n", transaction)
+
+	rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
+	if ecdsa.Verify(&rawPubKey, []byte(dataToVerify), &r, &s) == false {
+		return false
+	}
+	return true
+}
+
 
 func CheckSum(payload []byte) []byte{
 	firstHash := sha256.Sum256(payload)

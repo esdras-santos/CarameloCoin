@@ -12,6 +12,7 @@ import (
 
 
 type TxInput struct {
+	ID []byte //index of the input
 	PrevTxID []byte // 32 bytes little-endian
 	Out []byte // 4 bytes little-endian
 	ScriptSig []byte
