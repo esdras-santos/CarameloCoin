@@ -2,13 +2,10 @@ package script
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"gochain/utils"
-	"gochain/wallet"
 	"log"
 	"math/big"
 
-	"golang.org/x/crypto/ripemd160"
 )
 
 // receives an byte and return a function
@@ -17,7 +14,10 @@ var OP_CODE_FUNCTIONS = map[byte]interface{}{
 	// 0x51:"op_1",
 	// 0x60:"op_16",
 	0x76: OP_DUP,
-	// 0x93:"op_add",
+	0x87: OP_EQUAL,
+	0x88: OP_EQUALVERIFY,
+	0x93: OP_ADD,
+	0x95: OP_MUL,
 	0xa9: OP_HASH160,
 	0xaa: OP_HASH256,
 	0xac: OP_CHECKSIG,
@@ -28,7 +28,7 @@ type Script struct {
 	Cmd [][]byte
 }
 
-/*before you pass the argument "transaction" you have to convert the transaction 
+/*before you pass the argument "transaction" you have to convert the Transaction struct 
 to string like that "dataToVerify := fmt.Sprintf("%x\n", transaction)" and then cast 
 to array of bytes and pass as argument like that "script.Script.Evaluate([]byte(dataToVerify))"
 */
@@ -62,13 +62,13 @@ func (s *Script) Evaluate(transaction []byte) bool{
 				}
 			}
 		}else{
-			stack.Push(cmd[0])
+			stack.Push(cmd[0][1:])
 		}
 	}
 	if stack.Empty(){
 		return false
 	}
-	if c,_ := stack.Front();bytes.Equal(c,[]byte{}){
+	if c,_ := stack.Front();bytes.Equal(c,nil){
 		return false
 	}
 	return true
@@ -152,69 +152,6 @@ func (src *Script) Serialize() []byte{
 	return result
 }
 
-func OP_0(stack *Stack)bool{
-	stack.Push([]byte{0})
-	return true
-}
-
-func OP_CHECKSIG(stack *Stack, transaction []byte) bool{
-	if stack.Size() < 2{
-		return false
-	}
-	pubkey,err := stack.Front()
-	handle(err)
-	err = stack.Pop()
-	handle(err)
-	signature,err := stack.Front()
-	handle(err)
-	leng := len(signature)
-	signature = append(signature[:leng-1],signature[leng:]...)
-	err = stack.Pop()
-	handle(err)
-	if wallet.VerifySignature(transaction,pubkey,signature){
-		stack.Push([]byte{1})
-	}else{
-		stack.Push([]byte{0})
-		return false
-	}
-	return true
-}
-
-func OP_DUP(stack *Stack) bool {
-	if stack.Empty() {
-		return false
-	}
-	opcode, err := stack.Front()
-	handle(err)
-	stack.Push(opcode)
-	return true
-}
-
-func OP_HASH256(stack *Stack) bool{
-	if stack.Size() < 1{
-		return false
-	}
-	data,err := stack.Front()
-	handle(err)
-	stack.Pop()
-	hash := sha256.Sum256(data) 
-	stack.Push(hash[:])
-	return true
-}
-
-func OP_HASH160(stack *Stack) bool{
-	if stack.Size() < 1{
-		return false
-	}
-	data,err := stack.Front()
-	handle(err)
-	hasher := ripemd160.New()
-	_,err = hasher.Write(data[:])
-	handle(err)
-	hash := hasher.Sum(nil)
-	stack.Push(hash[:])
-	return true
-}
 
 func getkey(m map[byte]string, value string) (key byte, ok bool) {
 	for k, v := range m {
