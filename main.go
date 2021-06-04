@@ -6,7 +6,6 @@ import (
 
 	"encoding/binary"
 	"fmt"
-
 )
 
 var FUNCTIONS = map[int]interface{}{
@@ -28,12 +27,10 @@ func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
-	a := [][]int{{1,2},{3,4},{5,6}}
-	//leng := len(a)
-	//t := append(a[:leng-1],a[leng:]...)
-
-	
-	fmt.Println(a[0][1:])
+	var a, b uint
+	a = 2
+	b = 3
+	fmt.Println(a-b)
 }
 
 func mapkey(m map[byte]string, value string) (key byte, ok bool) {

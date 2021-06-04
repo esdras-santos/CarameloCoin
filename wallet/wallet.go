@@ -71,6 +71,10 @@ func PublicKeyHash(pubKey []byte) []byte{
 	return publicRipMD
 }
 
+/*before you pass the argument "transaction" you have to convert the Transaction struct 
+to string like that "dataToVerify := fmt.Sprintf("%x\n", transaction)" and then cast 
+to array of bytes and pass as argument like that "script.Script.Evaluate([]byte(dataToVerify))"
+*/
 func VerifySignature(transaction ,pubkey, sig []byte) bool{
 	curve := elliptic.P256()
 

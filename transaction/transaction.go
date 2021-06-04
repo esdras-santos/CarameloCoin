@@ -1,13 +1,11 @@
 package transaction
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/gob"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -19,8 +17,8 @@ import (
 )
 
 type Transaction struct {
-	Version *big.Int
-	Locktime *big.Int
+	Version uint
+	Locktime uint
 	//ID      []byte
 	Inputs  []TxInput
 	Outputs []TxOutput
@@ -46,7 +44,7 @@ func (tx *Transaction) Id() []byte{
 
 
 func (tx Transaction) Serialize() []byte {
-	result := utils.ToLittleEndian(tx.Version.Bytes(),4)
+	result := utils.ToLittleEndian([]byte{byte(tx.Version)},4)
 	
 	lenIns := big.NewInt(int64(len(tx.Inputs)))
 	var lenInsEnc []byte
@@ -63,7 +61,7 @@ func (tx Transaction) Serialize() []byte {
 	for i := 0; i < len(tx.Outputs);i++{
 		result = append(result, tx.Outputs[i].Serialize()...)
 	}
-	result = append(result, utils.ToLittleEndian(tx.Locktime.Bytes(),4)...)
+	result = append(result, utils.ToLittleEndian([]byte{byte(tx.Locktime)},4)...)
 	return result
 }
 
@@ -80,7 +78,7 @@ func DeserializeTransaction(data []byte, testnet bool) Transaction {
 		startIn = 8
 	}
 	
-	txn.Version.SetBytes(utils.ToLittleEndian(data[:5],4))
+	txn.Version = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[:5],4)))
 	
 	for i := 0;i<int(lenIn);i++{
 		data, len := DeserializeInput(data[startIn:])
@@ -101,31 +99,35 @@ func DeserializeTransaction(data []byte, testnet bool) Transaction {
 	for i := 0;i<int(lenOut);i++{
 		data,len := DeserializeOutput(data[startOut:])
 		txn.Outputs = append(txn.Outputs, data)
-		startOut += len
+		startOut += int(len)
 	}
 
-	txn.Locktime.SetBytes(utils.ToLittleEndian(data[startOut:],4))
+	txn.Locktime = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[startOut:],4)))
 
 	txn.Testnet = testnet
 
 	return txn
 }
 
-func (tx Transaction) Fee(testnet bool) *big.Int{
-	inputSum , outputSum, aux := big.NewInt(0), big.NewInt(0), big.NewInt(0)
+func (tx Transaction) Fee(testnet bool) uint{
+	var inputSum, outputSum uint
 
 	for _,txin := range tx.Inputs{
-		inputSum = aux.Add(inputSum,txin.Value(false))
+		inputSum += txin.Value(false)
 	}
 	for _,txout := range tx.Outputs{
-		outputSum = aux.Add(outputSum,txout.Amount)
+		outputSum += txout.Amount
 	}
-	return aux.Sub(inputSum,outputSum)
+	fee := inputSum - outputSum
+	if outputSum + fee != inputSum{
+		log.Panic("fee overflow")
+	}
+	return fee
 }
 
 
 
-func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Transaction {
+func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTXOSet) *Transaction {
 	var inputs []TxInput
 	var outputs []TxOutput
 
@@ -142,28 +144,25 @@ func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Tra
 		Handle(err)
 
 		for _, out := range outs {
-			input := TxInput{txID, out, nil, w.PublicKey}
+			input := TxInput{txID, uint(out), nil, w.PublicKey}
 			inputs = append(inputs, input)
 		}
 	}
 
-	from := fmt.Sprintf("%s", w.Address())
-
-	outputs = append(outputs, *NewTXOutput(amount, to))
+	outputs = append(outputs, TxOutput{uint(amount), scriptPubKey})
 
 	if acc > amount {
-		outputs = append(outputs, *NewTXOutput(acc-amount, from))
+		outputs = append(outputs, TxOutput{uint(acc-amount), w.PublicKey})
 	}
 
-	tx := Transaction{nil, inputs, outputs}
-	tx.ID = tx.Hash()
+	tx := Transaction{1,4294967295, inputs, outputs,false}
 	UTXO.Blockchain.SignTransaction(&tx, w.PrivateKey)
 
 	return &tx
 }
 
 func (tx *Transaction) IsCoinbase() bool {
-	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].Out == -1
+	return len(tx.Inputs) == 1 && len(tx.Inputs[0].PrevTxID) == 0 && tx.Inputs[0].Out == 0
 }
 
 func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTXs map[string]Transaction) {
@@ -172,17 +171,22 @@ func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTXs map[string]Transac
 	}
 
 	for _, in := range tx.Inputs {
-		if prevTXs[hex.EncodeToString(in.ID)].ID == nil {
+		ptx := prevTXs[hex.EncodeToString(in.PrevTxID)]
+		if ptx.Id == nil {
 			log.Panic("ERROR: Previous transaction is not correct")
 		}
 	}
 
 	txCopy := tx.TrimmedCopy()
 
+	
+
 	for inId, in := range txCopy.Inputs {
-		prevTX := prevTXs[hex.EncodeToString(in.ID)]
-		txCopy.Inputs[inId].Signature = nil
-		txCopy.Inputs[inId].PubKey = prevTX.Outputs[in.Out].PubKeyHash
+		prevTX := prevTXs[hex.EncodeToString(in.PrevTxID)]
+		txCopy.Inputs[inId].ScriptSig = nil
+		for outId, out := range prevTX.Outputs{
+			txCopy.Outputs[outId].ScriptPubKey = out.ScriptPubKey
+		}
 
 		dataToSign := fmt.Sprintf("%x\n", txCopy)
 
@@ -190,8 +194,10 @@ func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTXs map[string]Transac
 		Handle(err)
 		signature := append(r.Bytes(), s.Bytes()...)
 
-		tx.Inputs[inId].Signature = signature
-		txCopy.Inputs[inId].PubKey = nil
+		tx.Inputs[inId].ScriptSig = signature
+		for outId, _ := range prevTX.Outputs{
+			txCopy.Outputs[outId].ScriptPubKey = nil
+		}
 	}
 }
 
@@ -202,7 +208,7 @@ func (tx *Transaction) VerifyTransaction(prevTXs map[string]Transaction) bool {
 	}
 
 	for _, in := range tx.Inputs {
-		prevtxs := prevTXs[hex.EncodeToString(in.ID)] 
+		prevtxs := prevTXs[hex.EncodeToString(in.PrevTxID)] 
 		if prevtxs.Id() == nil {
 			log.Panic("Previous transaction not correct")
 		}
@@ -212,22 +218,22 @@ func (tx *Transaction) VerifyTransaction(prevTXs map[string]Transaction) bool {
 	curve := elliptic.P256()
 
 	for inId, in := range tx.Inputs {
-		prevTx := prevTXs[hex.EncodeToString(in.ID)]
+		prevTx := prevTXs[hex.EncodeToString(in.PrevTxID)]
 		txCopy.Inputs[inId].ScriptSig = nil
-		scriptpubKey := prevTx.Outputs[binary.BigEndian.Uint64(in.Out)].ScriptPubKey
+		scriptpubKey := prevTx.Outputs[in.Out].ScriptPubKey
 
 		r := big.Int{}
 		s := big.Int{}
 
-		sigLen := len(in.Signature)
-		r.SetBytes(in.Signature[:(sigLen / 2)])
-		s.SetBytes(in.Signature[(sigLen / 2):])
+		sigLen := len(in.ScriptSig)
+		r.SetBytes(in.ScriptSig[:(sigLen / 2)])
+		s.SetBytes(in.ScriptSig[(sigLen / 2):])
 
 		x := big.Int{}
 		y := big.Int{}
-		keyLen := len(in.PubKey)
-		x.SetBytes(in.PubKey[:(keyLen / 2)])
-		y.SetBytes(in.PubKey[(keyLen / 2):])
+		keyLen := len(scriptpubKey)
+		x.SetBytes(scriptpubKey[:(keyLen / 2)])
+		y.SetBytes(scriptpubKey[(keyLen / 2):])
 
 		dataToVerify := fmt.Sprintf("%x\n", txCopy)
 
@@ -235,7 +241,10 @@ func (tx *Transaction) VerifyTransaction(prevTXs map[string]Transaction) bool {
 		if ecdsa.Verify(&rawPubKey, []byte(dataToVerify), &r, &s) == false {
 			return false
 		}
-		txCopy.Inputs[inId].PubKey = nil
+		
+		for outId, _ := range txCopy.Outputs{
+			txCopy.Outputs[outId].ScriptPubKey = nil
+		}
 	}
 
 	return true
@@ -246,14 +255,14 @@ func (tx *Transaction) TrimmedCopy() Transaction {
 	var outputs []TxOutput
 
 	for _, in := range tx.Inputs {
-		inputs = append(inputs, TxInput{in.ID, in.Out, nil, nil})
+		inputs = append(inputs, TxInput{in.PrevTxID, in.Out, nil, nil})
 	}
 
 	for _, out := range tx.Outputs {
-		outputs = append(outputs, TxOutput{out.Value, out.PubKeyHash})
+		outputs = append(outputs, TxOutput{out.Amount, out.ScriptPubKey})
 	}
 
-	txCopy := Transaction{tx.ID, inputs, outputs}
+	txCopy := Transaction{1,4294967295, inputs, outputs, false}
 
 	return txCopy
 }
@@ -263,20 +272,26 @@ func (tx *Transaction) TrimmedCopy() Transaction {
 func (tx Transaction) String() string {
 	var lines []string
 
-	lines = append(lines, fmt.Sprintf("--- Transaction %x:", tx.ID))
+	lines = append(lines, fmt.Sprintf("--- Transaction %x:", tx.Id()))
 	for i, input := range tx.Inputs {
 		lines = append(lines, fmt.Sprintf("     Input %d:", i))
-		lines = append(lines, fmt.Sprintf("       TXID:     %x", input.ID))
+		lines = append(lines, fmt.Sprintf("       TXID:     %x", input.PrevTxID))
 		lines = append(lines, fmt.Sprintf("       Out:       %d", input.Out))
-		lines = append(lines, fmt.Sprintf("       Signature: %x", input.Signature))
-		lines = append(lines, fmt.Sprintf("       PubKey:    %x", input.PubKey))
+		lines = append(lines, fmt.Sprintf("       Sript Signature: %x", input.ScriptSig))
+		lines = append(lines, fmt.Sprintf("       Sequence:    %x", input.Sequence))
 	}
 
 	for i, output := range tx.Outputs {
 		lines = append(lines, fmt.Sprintf("     Output %d:", i))
-		lines = append(lines, fmt.Sprintf("       Value:  %d", output.Value))
-		lines = append(lines, fmt.Sprintf("       Script: %x", output.PubKeyHash))
+		lines = append(lines, fmt.Sprintf("       Value:  %d", output.Amount))
+		lines = append(lines, fmt.Sprintf("       Script: %x", output.ScriptPubKey))
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func Handle(err error){
+	if err != nil{
+		log.Panic(err)
+	}
 }
