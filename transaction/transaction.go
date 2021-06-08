@@ -2,7 +2,6 @@ package transaction
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -12,6 +11,7 @@ import (
 	"math/big"
 	"strings"
 
+	"gochain/script"
 	"gochain/utils"
 	"gochain/wallet"
 )
@@ -214,36 +214,20 @@ func (tx *Transaction) VerifyTransaction(prevTXs map[string]Transaction) bool {
 		}
 	}
 
-	txCopy := tx.TrimmedCopy()
-	curve := elliptic.P256()
 
 	for inId, in := range tx.Inputs {
 		prevTx := prevTXs[hex.EncodeToString(in.PrevTxID)]
-		txCopy.Inputs[inId].ScriptSig = nil
+		scriptsig := tx.Inputs[inId].ScriptSig
 		scriptpubKey := prevTx.Outputs[in.Out].ScriptPubKey
 
-		r := big.Int{}
-		s := big.Int{}
-
-		sigLen := len(in.ScriptSig)
-		r.SetBytes(in.ScriptSig[:(sigLen / 2)])
-		s.SetBytes(in.ScriptSig[(sigLen / 2):])
-
-		x := big.Int{}
-		y := big.Int{}
-		keyLen := len(scriptpubKey)
-		x.SetBytes(scriptpubKey[:(keyLen / 2)])
-		y.SetBytes(scriptpubKey[(keyLen / 2):])
-
-		dataToVerify := fmt.Sprintf("%x\n", txCopy)
-
-		rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
-		if ecdsa.Verify(&rawPubKey, []byte(dataToVerify), &r, &s) == false {
+		scriptin := script.Script{}
+		scriptout := script.Script{}
+		scriptin.Cmd,_ = scriptin.ScriptParser(scriptsig)
+		scriptout.Cmd,_ = scriptin.ScriptParser(scriptpubKey)
+		script := scriptin.Add(scriptout)
+		dataToVerify := fmt.Sprintf("%x\n", tx)
+		if !script.Evaluate([]byte(dataToVerify)){
 			return false
-		}
-		
-		for outId, _ := range txCopy.Outputs{
-			txCopy.Outputs[outId].ScriptPubKey = nil
 		}
 	}
 
