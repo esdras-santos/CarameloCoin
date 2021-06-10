@@ -55,6 +55,7 @@ func NewKeyPair(compressed bool) (ecdsa.PrivateKey,[]byte){
 }
 
 
+
 func MakeWallet() *Wallet{
 	private,public := NewKeyPair(true)
 	wallet := Wallet{private,public}

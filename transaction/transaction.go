@@ -40,9 +40,6 @@ func (tx *Transaction) Id() []byte{
 	return tx.hash()
 }
 
-
-
-
 func (tx Transaction) Serialize() []byte {
 	result := utils.ToLittleEndian([]byte{byte(tx.Version)},4)
 	
@@ -156,6 +153,8 @@ func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTX
 	}
 
 	tx := Transaction{1,4294967295, inputs, outputs,false}
+	tx.VerifyTransaction(tx.Outputs)
+	
 	UTXO.Blockchain.SignTransaction(&tx, w.PrivateKey)
 
 	return &tx
@@ -165,60 +164,48 @@ func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].PrevTxID) == 0 && tx.Inputs[0].Out == 0
 }
 
-func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTXs map[string]Transaction) {
+func (tx *Transaction) Sign(wallet wallet.Wallet, UTXOs []TxOutput) {
 	if tx.IsCoinbase() {
 		return
 	}
 
-	for _, in := range tx.Inputs {
-		ptx := prevTXs[hex.EncodeToString(in.PrevTxID)]
-		if ptx.Id == nil {
-			log.Panic("ERROR: Previous transaction is not correct")
-		}
-	}
-
 	txCopy := tx.TrimmedCopy()
 
-	
-
-	for inId, in := range txCopy.Inputs {
-		prevTX := prevTXs[hex.EncodeToString(in.PrevTxID)]
+	for inId, _ := range txCopy.Inputs {
 		txCopy.Inputs[inId].ScriptSig = nil
-		for outId, out := range prevTX.Outputs{
+		for outId, out := range UTXOs{
 			txCopy.Outputs[outId].ScriptPubKey = out.ScriptPubKey
 		}
 
 		dataToSign := fmt.Sprintf("%x\n", txCopy)
 
-		r, s, err := ecdsa.Sign(rand.Reader, &privKey, []byte(dataToSign))
+		r, s, err := ecdsa.Sign(rand.Reader, &wallet.PrivateKey, []byte(dataToSign))
 		Handle(err)
 		signature := append(r.Bytes(), s.Bytes()...)
 
-		tx.Inputs[inId].ScriptSig = signature
-		for outId, _ := range prevTX.Outputs{
+		scriptsig := []byte{byte(len(signature))}
+		scriptsig = append(scriptsig, signature...)
+		scriptsig = append(scriptsig, []byte{byte(len(wallet.PublicKey))}...)
+		scriptsig = append(scriptsig, wallet.PublicKey...)
+		//p2pkh script
+		tx.Inputs[inId].ScriptSig = scriptsig 
+		for outId, _ := range UTXOs{
 			txCopy.Outputs[outId].ScriptPubKey = nil
 		}
 	}
 }
 
 
-func (tx *Transaction) VerifyTransaction(prevTXs map[string]Transaction) bool {
+func (tx *Transaction) VerifyTransaction(UTXOs []TxOutput) bool {
 	if tx.IsCoinbase() {
 		return true
 	}
 
-	for _, in := range tx.Inputs {
-		prevtxs := prevTXs[hex.EncodeToString(in.PrevTxID)] 
-		if prevtxs.Id() == nil {
-			log.Panic("Previous transaction not correct")
-		}
-	}
-
 
 	for inId, in := range tx.Inputs {
-		prevTx := prevTXs[hex.EncodeToString(in.PrevTxID)]
+	
 		scriptsig := tx.Inputs[inId].ScriptSig
-		scriptpubKey := prevTx.Outputs[in.Out].ScriptPubKey
+		scriptpubKey := UTXOs[in.Out].ScriptPubKey
 
 		scriptin := script.Script{}
 		scriptout := script.Script{}
@@ -232,6 +219,17 @@ func (tx *Transaction) VerifyTransaction(prevTXs map[string]Transaction) bool {
 	}
 
 	return true
+}
+
+func P2pkhScript(w wallet.Wallet) []byte{
+	script := []byte{0x76}
+	script = append(script, 0xa9)
+	hash := wallet.PublicKeyHash(w.PublicKey)
+	script = append(script, []byte{byte(len(hash))}...)
+	script = append(script, hash...)
+	script = append(script, 0x88)
+	script = append(script, 0xac)
+	return script
 }
 
 func (tx *Transaction) TrimmedCopy() Transaction {
