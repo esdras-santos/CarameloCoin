@@ -1,8 +1,10 @@
-package transaction
+package blockchain
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"gochain/utils"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -41,7 +43,7 @@ func (txf TxFetcher) Fetch(txid []byte, testnet, fresh bool) *Transaction {
 		if raw[4] == 0{
 			raw = append(raw[:4], raw[6:]...)
 			tx = DeserializeTransaction(raw,false)
-			tx.Locktime.SetBytes(toLittleEndian(raw[4:],4))
+			tx.Locktime = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(raw[4:],4)))
 		}else{
 			tx = DeserializeTransaction(raw,false)
 		}

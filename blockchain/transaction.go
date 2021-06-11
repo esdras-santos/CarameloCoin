@@ -1,4 +1,4 @@
-package transaction
+package blockchain
 
 import (
 	"crypto/ecdsa"
@@ -127,6 +127,7 @@ func (tx Transaction) Fee(testnet bool) uint{
 func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTXOSet) *Transaction {
 	var inputs []TxInput
 	var outputs []TxOutput
+	bc := BlockChain{}
 
 	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
 	acc, validOutputs := UTXO.FindSpendableOutputs(pubKeyHash, amount)
@@ -153,7 +154,14 @@ func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTX
 	}
 
 	tx := Transaction{1,4294967295, inputs, outputs,false}
-	tx.VerifyTransaction(tx.Outputs)
+	prevTXs := make(map[string]Transaction)
+	
+	for _,in := range tx.Inputs{
+		prevTX, err := bc.FindTransaction(in.PrevTxID)
+		Handle(err)
+		prevTXs[hex.EncodeToString(prevTX.Id())] = prevTX
+	}
+	tx.VerifyTransaction(prevTXs)
 	
 	UTXO.Blockchain.SignTransaction(&tx, w.PrivateKey)
 
@@ -164,17 +172,19 @@ func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].PrevTxID) == 0 && tx.Inputs[0].Out == 0
 }
 
-func (tx *Transaction) Sign(wallet wallet.Wallet, UTXOs []TxOutput) {
+func (tx *Transaction) Sign(wallet wallet.Wallet, prevTxs map[string]Transaction) {
 	if tx.IsCoinbase() {
 		return
 	}
 
 	txCopy := tx.TrimmedCopy()
 
-	for inId, _ := range txCopy.Inputs {
+	for inId, in := range txCopy.Inputs {
+		index := 0
 		txCopy.Inputs[inId].ScriptSig = nil
-		for outId, out := range UTXOs{
-			txCopy.Outputs[outId].ScriptPubKey = out.ScriptPubKey
+		for index == len(tx.Outputs){
+			txCopy.Outputs[index].ScriptPubKey = prevTxs[hex.EncodeToString(in.PrevTxID)].Outputs[index].ScriptPubKey
+			index++
 		}
 
 		dataToSign := fmt.Sprintf("%x\n", txCopy)
@@ -196,7 +206,7 @@ func (tx *Transaction) Sign(wallet wallet.Wallet, UTXOs []TxOutput) {
 }
 
 
-func (tx *Transaction) VerifyTransaction(UTXOs []TxOutput) bool {
+func (tx *Transaction) VerifyTransaction(UTXOs map[string]Transaction) bool {
 	if tx.IsCoinbase() {
 		return true
 	}
@@ -205,7 +215,7 @@ func (tx *Transaction) VerifyTransaction(UTXOs []TxOutput) bool {
 	for inId, in := range tx.Inputs {
 	
 		scriptsig := tx.Inputs[inId].ScriptSig
-		scriptpubKey := UTXOs[in.Out].ScriptPubKey
+		scriptpubKey := UTXOs[hex.EncodeToString(in.PrevTxID)].Outputs[in.Out].ScriptPubKey
 
 		scriptin := script.Script{}
 		scriptout := script.Script{}
@@ -270,10 +280,4 @@ func (tx Transaction) String() string {
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-func Handle(err error){
-	if err != nil{
-		log.Panic(err)
-	}
 }

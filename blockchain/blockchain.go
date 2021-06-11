@@ -304,12 +304,12 @@ func (bc *BlockChain) VerifyTransaction(tx *Transaction) bool{
 	prevTXs := make(map[string]Transaction)
 	
 	for _,in := range tx.Inputs{
-		prevTX, err := bc.FindTransaction(in.ID)
+		prevTX, err := bc.FindTransaction(in.PrevTxID)
 		Handle(err)
-		prevTXs[hex.EncodeToString(prevTX.ID)] = prevTX
+		prevTXs[hex.EncodeToString(prevTX.Id())] = prevTX
 	}
 
-	return tx.Verify(prevTXs)
+	return tx.VerifyTransaction(prevTXs)
 }
 
 func retry(dir string, originalOpts badger.Options) (*badger.DB,error){
