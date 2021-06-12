@@ -5,37 +5,55 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"gochain/utils"
 	"log"
 	"math"
 	"math/big"
+
+	"github.com/dgraph-io/badger"
 )
 
-const Difficulty = 12 
+
 
 type ProofOfWork struct{
 	Block *Block
 	Target *big.Int
 }
 
-func NewProof(b *Block) *ProofOfWork{
-	target := big.NewInt(1)
-	target.Lsh(target,uint(256-Difficulty))
+//each block will be mined in approximately in each 6 seconds and in the end of the 24 hours the difficulty will be adjusted
+//number of seconds in one day
+var ONE_DAY int =  86400
+var DIFFICULTYDB *badger.DB
 
-	pow := &ProofOfWork{b,target}
 
-	return pow
+
+func (pow *ProofOfWork) DifficultyAdjustment(){
+
 }
 
-func (pow *ProofOfWork) InitData(nonce int) []byte{
-	data := bytes.Join(
-		[][]byte{
-			pow.Block.PrevHash,
-			pow.Block.HashTransactions(),
-			ToHex(int64(nonce)),
-			ToHex(int64(Difficulty)),
-		},
-		[]byte{},
-	)
+//this will be used to update the fb(first block after adjust) and lb(last block after the adjust)
+func (pow *ProofOfWork) UpdatePosition(block *Block,position string){
+	err := DIFFICULTYDB.Update(func(txn *badger.Txn) error{
+		if _,err := txn.Get(block.Hash()); err == nil{
+			return nil
+		}
+
+		blockData := block.Serialize()
+		err := txn.Set(block.Hash(), blockData)
+		Handle(err)
+
+		err = txn.Set([]byte(position), block.Hash())
+		Handle(err)
+
+		return nil
+	})
+	Handle(err)
+}
+
+
+func (pow *ProofOfWork) InitData(nonce int64) []byte{
+	pow.Block.Nonce = ToHex(nonce)
+	data := pow.Block.Serialize()
 	return data
 }
 
@@ -46,7 +64,7 @@ func (pow *ProofOfWork) Run()(int,[]byte){
 	nonce := 0
 
 	for nonce < math.MaxInt64{
-		data := pow.InitData(nonce)
+		data := pow.InitData(int64(nonce))
 		hash = sha256.Sum256(data)	
 		fmt.Printf("\r%x",hash)
 		intHash.SetBytes(hash[:])
@@ -61,10 +79,18 @@ func (pow *ProofOfWork) Run()(int,[]byte){
 	return nonce,hash[:]
 }
 
+func BitsToTarget(bits []byte) *big.Int{
+	exponent := big.NewInt(0)
+	coefficient := big.NewInt(0)
+	exponent.SetBytes([]byte{bits[4]})
+	coefficient.SetBytes(utils.ToLittleEndian(bits[:3],3))
+	return coefficient.Mul(coefficient,exponent.Exp(big.NewInt(256),exponent.Sub(exponent,big.NewInt(3)),nil))
+}
+
 func (pow *ProofOfWork) Validate()bool{
 	var intHash big.Int
 
-	data := pow.InitData(pow.Block.Nonce)
+	data := pow.Block.Serialize()
 
 	hash := sha256.Sum256(data)
 	intHash.SetBytes(hash[:])

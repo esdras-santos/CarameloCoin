@@ -27,10 +27,9 @@ func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
-	var a, b uint
-	a = 2
-	b = 3
-	fmt.Println(a-b)
+	a := []int{0,1,2,3,4,5}
+	fmt.Println(a[:4])
+	fmt.Println(0x18)
 }
 
 func mapkey(m map[byte]string, value string) (key byte, ok bool) {

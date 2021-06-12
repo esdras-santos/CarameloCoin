@@ -169,7 +169,14 @@ func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTX
 }
 
 func (tx *Transaction) IsCoinbase() bool {
-	return len(tx.Inputs) == 1 && len(tx.Inputs[0].PrevTxID) == 0 && tx.Inputs[0].Out == 0
+	if len(tx.Inputs) == 1{
+		if len(tx.Inputs[0].PrevTxID) == 0{
+			if tx.Inputs[0].Out == 0xffffffff{
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (tx *Transaction) Sign(wallet wallet.Wallet, prevTxs map[string]Transaction) {
@@ -199,7 +206,7 @@ func (tx *Transaction) Sign(wallet wallet.Wallet, prevTxs map[string]Transaction
 		scriptsig = append(scriptsig, wallet.PublicKey...)
 		//p2pkh script
 		tx.Inputs[inId].ScriptSig = scriptsig 
-		for outId, _ := range UTXOs{
+		for outId, _ := range txCopy.Outputs{
 			txCopy.Outputs[outId].ScriptPubKey = nil
 		}
 	}
