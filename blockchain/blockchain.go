@@ -27,12 +27,12 @@ type BlockChain struct {
 
 func (chain *BlockChain) AddBlock(block *Block){
 	err := chain.Database.Update(func(txn *badger.Txn) error{
-		if _,err := txn.Get(block.Hash); err == nil{
+		if _,err := txn.Get(block.Hash()); err == nil{
 			return nil
 		}
 
 		blockData := block.Serialize()
-		err := txn.Set(block.Hash, blockData)
+		err := txn.Set(block.Hash(), blockData)
 		Handle(err)
 
 		item, err := txn.Get([]byte("lh"))

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-type Block struct{
+type BlockHeader struct{
 	Version []byte
 	PrevBlock []byte
 	MerkleRoot []byte
@@ -20,12 +20,15 @@ type Block struct{
 	Nonce []byte
 }
 
+type Block struct{
+	*BlockHeader
+	Transactions []Transaction
+}
+
 
 
 func (b *Block) HashTransactions() []byte{
 	var txHashes [][]byte
-	
-
 	for _,tx := range b.Transactions{
 		txHashes = append(txHashes,tx.Serialize())
 	}
@@ -35,7 +38,7 @@ func (b *Block) HashTransactions() []byte{
 }
 
 func CreateBlock(txs []*Transaction,prevHash []byte, height int) *Block{
-	block := &Block{time.Now().Unix(),[]byte{},txs,prevHash,0,height}
+	block := &BlockHeader{time.Now().Unix(),[]byte{},txs,prevHash,0,height}
 
 	
 	pow := NewProof(block)
@@ -50,17 +53,17 @@ func Genesis(coinbase *Transaction) *Block{
 	return CreateBlock([]*Transaction{coinbase},[]byte{},0)
 }
 
-func (b *Block) Parse(s []byte) Block {
+func (b *BlockHeader) Parse(s []byte) BlockHeader {
 	version := utils.ToLittleEndian(s[:4],4)
 	prevBlock := utils.ToLittleEndian(s[5:36],32)
 	merkleRoot := utils.ToLittleEndian(s[37:68],32)
 	timeStamp := utils.ToLittleEndian(s[69:72],4)
 	bits := s[73:76]
 	nonce := s[77:80]
-	return Block{version,prevBlock,merkleRoot,timeStamp,bits,nonce}
+	return BlockHeader{version,prevBlock,merkleRoot,timeStamp,bits,nonce}
 }
 
-func (b *Block) Serialize() []byte {
+func (b *BlockHeader) Serialize() []byte {
 	result := utils.ToLittleEndian(b.Version,4)
 	result = append(result, utils.ToLittleEndian(b.PrevBlock,32)...)
 	result = append(result, utils.ToLittleEndian(b.MerkleRoot,32)...)
@@ -71,7 +74,7 @@ func (b *Block) Serialize() []byte {
 }
 
 //return the hash of the block in little endian
-func (b *Block) Hash() []byte{
+func (b *BlockHeader) Hash() []byte{
 	s := b.Serialize()
 	sha := sha256.Sum256(s)
 	return utils.ToLittleEndian(sha[:],32)
@@ -79,32 +82,27 @@ func (b *Block) Hash() []byte{
 
 func NewProof(b *Block) *ProofOfWork{
 
-	pow := &ProofOfWork{b,b.Target()}
+	pow := &ProofOfWork{b}
 
 	return pow
 }
 
-func (b *Block) Difficulty() *big.Int{
+func (b *BlockHeader) Difficulty() *big.Int{
 	lowest := big.NewInt(0)
 	lowest.Mul(big.NewInt(0xffff),(big.NewInt(0)).Exp(big.NewInt(256),(big.NewInt(0)).Sub(big.NewInt(0x1d),big.NewInt(3)),nil))
 	return lowest.Div(lowest,b.Target())
 }
 
-func (b *Block) Target() *big.Int{
-	exponent := big.NewInt(0)
-	coefficient := big.NewInt(0)
-	target := big.NewInt(0)
-	exponent.SetBytes([]byte{b.Bits[4]})
-	coefficient.SetBytes(utils.ToLittleEndian(b.Bits[:3],3))
-	target = coefficient.Mul(coefficient,exponent.Exp(big.NewInt(256),exponent.Sub(exponent,big.NewInt(3)),nil))
+func (b *BlockHeader) Target() *big.Int{
+	target := BitsToTarget(b.Bits)
 	return target
 }
 
-func (b *Block) Cip9()bool{
+func (b *BlockHeader) Cip9()bool{
 	return binary.BigEndian.Uint64(b.Version) >> 29 == 0b001
 }
 
-func (b *Block) Cip91() bool{
+func (b *BlockHeader) Cip91() bool{
 	return binary.BigEndian.Uint64(b.Version) >> 4 & 1 == 1
 }
 
