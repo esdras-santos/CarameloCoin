@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/binary"
 	"log"
 	"math/big"
@@ -55,4 +56,14 @@ func EncodeVarint(i big.Int, buf *[]byte) {
 	} else {
 		log.Panic("integer too large")
 	}
+}
+
+func ToHex(num int64) []byte{
+	buff := new(bytes.Buffer)
+	err := binary.Write(buff,binary.BigEndian,num)
+	if err != nil{
+		log.Panic(err)
+	}	
+
+	return buff.Bytes()
 }

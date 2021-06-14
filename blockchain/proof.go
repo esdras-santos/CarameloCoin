@@ -10,7 +10,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/dgraph-io/badger"
 )
 
 
@@ -19,23 +18,16 @@ type ProofOfWork struct{
 	Block *Block
 }
 
-//the db need to be changed later
-//use LevelDB
-var DIFFICULTYDB *badger.DB
-const (
-	DBPATH = "./tmp/difficultyadjust"
-	//each block will be mined in approximately in each 6 seconds and in the end of the 24 hours the difficulty will be adjusted
-	//number of seconds in one day
-	ONE_DAY =  86400
-)
 
-//adjust the difficulty of the bits
-func (pow *ProofOfWork) NewBits() []byte{
-	lastBlock := pow.GetPosition("lb")
-	firstBlock := pow.GetPosition("fb")
-	fts := big.NewInt(0).SetBytes(firstBlock.TimeStamp)
-	lts := big.NewInt(0).SetBytes(lastBlock.TimeStamp)
-	timeDifferential := big.NewInt(0).Sub(lts,fts)
+//each block will be mined in approximately in each 6 seconds and in the end of the 24 hours the difficulty will be adjusted
+//number of seconds in one day
+const ONE_DAY = 86400
+
+//adjust the bits in the of a period of approximately 1 day.
+//prevBits is the previous block bits before the adjust.
+//timeDifferential is the timeStamp difference between the first block of the period and the last block of the period.
+//return the new bits adjusted
+func (pow *ProofOfWork) NewBits(prevBits []byte, timeDifferential *big.Int) []byte{
 	if timeDifferential.Cmp(big.NewInt(0).Mul(big.NewInt(ONE_DAY),big.NewInt(4))) == 1{
 		timeDifferential = big.NewInt(0).Mul(big.NewInt(ONE_DAY),big.NewInt(4))
 	}
@@ -43,7 +35,7 @@ func (pow *ProofOfWork) NewBits() []byte{
 		timeDifferential = big.NewInt(0).Div(big.NewInt(ONE_DAY),big.NewInt(4))
 	}
 
-	newTarget := big.NewInt(0).Mul(lastBlock.Target(),timeDifferential.Div(timeDifferential,big.NewInt(ONE_DAY)))
+	newTarget := big.NewInt(0).Mul(BitsToTarget(prevBits),big.NewInt(0).Div(timeDifferential,big.NewInt(ONE_DAY)))
 	return TargetToBits(newTarget)
 }
 
@@ -61,33 +53,6 @@ func TargetToBits(target *big.Int) []byte{
 	newBits := append(utils.ToLittleEndian(coefficient,len(coefficient)), byte(exponent))
 	return newBits
 }
-
-
-//will be used LevelDB
-func (pow *ProofOfWork) GetPosition(position string) Block{
-	return Block{}
-}
-
-//this will be used to update the fb(first block after adjust) and lb(last block after the adjust)
-//the db need to be changed later
-func (pow *ProofOfWork) UpdatePosition(block *Block,position string){
-	err := DIFFICULTYDB.Update(func(txn *badger.Txn) error{
-		if _,err := txn.Get(block.Hash()); err == nil{
-			return nil
-		}
-
-		blockData := block.Serialize()
-		err := txn.Set(block.Hash(), blockData)
-		Handle(err)
-
-		err = txn.Set([]byte(position), block.Hash())
-		Handle(err)
-
-		return nil
-	})
-	Handle(err)
-}
-
 
 func (pow *ProofOfWork) InitData(nonce int64) []byte{
 	pow.Block.Nonce = ToHex(nonce)
@@ -137,12 +102,3 @@ func (pow *ProofOfWork) Validate()bool{
 	return intHash.Cmp(pow.Block.Target()) == -1
 }
 
-func ToHex(num int64) []byte{
-	buff := new(bytes.Buffer)
-	err := binary.Write(buff,binary.BigEndian,num)
-	if err != nil{
-		log.Panic(err)
-	}	
-
-	return buff.Bytes()
-}

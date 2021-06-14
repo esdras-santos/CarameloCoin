@@ -2,26 +2,35 @@ package network
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
 	"gochain/blockchain"
+	"gochain/utils"
+	"internal/bytealg"
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
+	"math/rand"
 	"net"
 	"os"
 	"runtime"
 	"syscall"
+	"time"
 
 	"gopkg.in/vrecan/death.v3"
 )
 
-const(
-	protocol = "tcp"
-	version  = 1
-	commandLength = 12
+const (
+	PROTOCOL = "tcp"
+	VERSION  = 1
+	COMMANDLENGTH = 12
 )
+//hex equivalenty to cmlc
+var NETWORK_MAGIC = []byte{0x63,0x6d,0x6c,0x63}
 
 var(
 	nodeAddress string
@@ -30,6 +39,43 @@ var(
 	blocksInTransit = [][]byte{}
 	memoryPool = make(map[string]blockchain.Transaction)
 )
+
+type NetworkEnvelope struct{
+	NetworkMagic []byte
+	Command []byte
+	Payload []byte
+}
+
+func (ne *NetworkEnvelope) Parse(s []byte) *NetworkEnvelope{
+	magic := s[:4]
+	if magic == nil{
+		log.Panic("ERROR: Connection reset!")
+	}
+	if !bytes.Equal(magic,NETWORK_MAGIC[:]){
+		log.Panic("magic is not right")
+	}
+	command := s[4:16]
+	payloadLength :=  binary.LittleEndian.Uint16(utils.ToLittleEndian(s[16:20],4))
+	checksum := s[20:24]
+	payload := s[24:24+payloadLength]
+	payloadHash := sha256.Sum256(payload)
+	calculatedChecksum := payloadHash[:4]
+	if !bytes.Equal(calculatedChecksum[:],checksum){
+		log.Panic("checksum does not match")
+	}
+	
+	return &NetworkEnvelope{NETWORK_MAGIC,command,payload}
+}
+
+func (ne *NetworkEnvelope) Serialize() []byte{
+	result := ne.NetworkMagic
+	result = append(result, ne.Command...)
+	result = append(result, utils.ToLittleEndian(utils.ToHex(int64(len(ne.Payload))),4)...)
+	checksum := sha256.Sum256(ne.Payload)
+	result = append(result, checksum[:4]...)
+	result = append(result, ne.Payload...)
+	return result
+}
 
 type Addr struct{
 	AddrList []string
@@ -61,12 +107,54 @@ type Tx struct{
 	Transaction []byte
 }
 
-type Version struct{
-	Version int
-	BestHeight int
-	AddrFrom string
+type VersionMessage struct{
+	Version []byte
+	Services []byte
+	Timestamp []byte
+	ReceiverServices []byte
+	ReceiverIP []byte
+	ReceiverPort []byte
+	SenderServices []byte
+	SenderIp []byte
+	SenderPort []byte
+	Nonce []byte
+	UserAgent []byte
+	LatestBlock []byte
+	//relay must have 01 to true or 00 to false
+	Relay []byte
 }
 
+var command = []byte("version")
+
+func (vm *VersionMessage) Init(version, services, timestamp, receiverservices, receiverip, receiverport, senderservices, senderip, senderport, nonce, useragent, latestblock []byte,relay bool){
+	vm.Version = version
+	vm.Services = services
+	if timestamp == nil{
+		vm.Timestamp = utils.ToHex(time.Now().Unix())
+	}else{
+		vm.Timestamp = timestamp
+	}
+	vm.ReceiverServices = receiverservices
+	vm.ReceiverIP = receiverip
+	vm.ReceiverPort = receiverport
+	vm.SenderServices = senderservices
+	vm.SenderIp = senderip
+	vm.SenderPort = senderport
+	if nonce == nil{
+		vm.Nonce = utils.ToLittleEndian(utils.ToHex(int64(rand.Intn(int(math.Pow(2,64))))),8)
+	}else{
+		vm.Nonce = nonce
+	}
+	vm.UserAgent = useragent
+	vm.LatestBlock = latestblock
+	if relay {
+		vm.Relay = []byte{0x01}
+	}else{
+		vm.Relay = []byte{0x00}
+	}
+}
+
+//this function need to be reviewed later
 func CmdToBytes(cmd string) []byte{
 	var bytes [commandLength]byte
 	for i,c := range cmd{
@@ -74,6 +162,8 @@ func CmdToBytes(cmd string) []byte{
 	}
 	return bytes[:]
 }
+
+//this function need to be reveewed later
 func BytesToCmd(bytes []byte) string{
 	var cmd []byte
 

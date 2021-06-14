@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/gob"
 	"gochain/utils"
 	"log"
 	"math/big"
@@ -25,6 +24,15 @@ type Block struct{
 	Transactions []Transaction
 }
 
+//get the current block height from the network
+func GetBlockHeight() uint{
+	return 0
+}
+
+//add block height and spread it through the network
+func AddBlockHeight(){
+
+}
 
 
 func (b *Block) HashTransactions() []byte{
@@ -81,8 +89,12 @@ func (b *BlockHeader) Hash() []byte{
 }
 
 func NewProof(b *Block) *ProofOfWork{
-
-	pow := &ProofOfWork{b}
+	var pow *ProofOfWork
+	//check if is the end of the 1 day period
+	if GetBlockHeight() % 8640 == 0{
+		b.Bits = pow.NewBits()
+	}
+	pow.Block = b
 
 	return pow
 }

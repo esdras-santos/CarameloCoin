@@ -6,7 +6,6 @@ import (
 
 	"encoding/binary"
 	"fmt"
-	"math/big"
 )
 
 var FUNCTIONS = map[int]interface{}{
@@ -28,11 +27,8 @@ func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
-	a := big.NewInt(510)
-	ar := a.Bytes()
-	for _,e := range ar{
-		fmt.Printf("%x",e)
-	}
+	a := []int{0,1,2,3,4,5}
+	fmt.Println(a[:4])
 	
 
 }
