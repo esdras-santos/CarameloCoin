@@ -1,12 +1,10 @@
 package blockchain
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"gochain/utils"
-	"log"
+	
 	"math"
 	"math/big"
 
@@ -55,7 +53,7 @@ func TargetToBits(target *big.Int) []byte{
 }
 
 func (pow *ProofOfWork) InitData(nonce int64) []byte{
-	pow.Block.Nonce = ToHex(nonce)
+	pow.Block.Nonce = utils.ToHex(nonce)
 	data := pow.Block.Serialize()
 	return data
 }

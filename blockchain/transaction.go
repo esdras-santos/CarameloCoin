@@ -28,7 +28,7 @@ type Transaction struct {
 func (tx *Transaction) hash() []byte {
 	var hash [32]byte
 
-	txCopy := *tx
+	txCopy := tx
 	//txCopy.ID = []byte{}
 
 	hash = sha256.Sum256(txCopy.Serialize())

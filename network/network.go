@@ -2,25 +2,15 @@ package network
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
 	"gochain/blockchain"
-	"gochain/utils"
-	"internal/bytealg"
-	"io"
-	"io/ioutil"
 	"log"
-	"math"
-	"math/big"
-	"math/rand"
 	"net"
 	"os"
 	"runtime"
 	"syscall"
-	"time"
 
 	"gopkg.in/vrecan/death.v3"
 )
@@ -41,43 +31,6 @@ var(
 	blocksInTransit = [][]byte{}
 	memoryPool = make(map[string]blockchain.Transaction)
 )
-
-type NetworkEnvelope struct{
-	NetworkMagic []byte
-	Command []byte
-	Payload []byte
-}
-
-func (ne *NetworkEnvelope) Parse(s []byte) *NetworkEnvelope{
-	magic := s[:4]
-	if magic == nil{
-		log.Panic("ERROR: Connection reset!")
-	}
-	if !bytes.Equal(magic,NETWORK_MAGIC[:]){
-		log.Panic("magic is not right")
-	}
-	command := s[4:16]
-	payloadLength :=  binary.LittleEndian.Uint16(utils.ToLittleEndian(s[16:20],4))
-	checksum := s[20:24]
-	payload := s[24:24+payloadLength]
-	payloadHash := sha256.Sum256(payload)
-	calculatedChecksum := payloadHash[:4]
-	if !bytes.Equal(calculatedChecksum[:],checksum){
-		log.Panic("checksum does not match")
-	}
-	
-	return &NetworkEnvelope{NETWORK_MAGIC,command,payload}
-}
-
-func (ne *NetworkEnvelope) Serialize() []byte{
-	result := ne.NetworkMagic
-	result = append(result, ne.Command...)
-	result = append(result, utils.ToLittleEndian(utils.ToHex(int64(len(ne.Payload))),4)...)
-	checksum := sha256.Sum256(ne.Payload)
-	result = append(result, checksum[:4]...)
-	result = append(result, ne.Payload...)
-	return result
-}
 
 type Addr struct{
 	AddrList []string
@@ -109,89 +62,28 @@ type Tx struct{
 	Transaction []byte
 }
 
-type VersionMessage struct{
-	Version []byte
-	Services []byte
-	Timestamp []byte
-	ReceiverServices []byte
-	ReceiverIP []byte
-	ReceiverPort []byte
-	SenderServices []byte
-	SenderIp []byte
-	SenderPort []byte
-	Nonce []byte
-	UserAgent []byte
-	LatestBlock []byte
-	//relay must have 01 to true or 00 to false
-	Relay []byte
-}
-
-var command = []byte("version")
-
-func (vm *VersionMessage) Init(version, services, timestamp, receiverservices, receiverip, receiverport, senderservices, senderip, senderport, nonce, useragent, latestblock []byte,relay bool){
-	vm.Version = version
-	vm.Services = services
-	if timestamp == nil{
-		vm.Timestamp = utils.ToHex(time.Now().Unix())
-	}else{
-		vm.Timestamp = timestamp
+func StartServer(nodeID, minerAddress string){
+	nodeAddress = fmt.Sprintf("%s%s",minerAddress,PORT)
+	ln, err := net.Listen(PROTOCOL, nodeAddress)
+	if err != nil{
+		log.Panic(err)
 	}
-	vm.ReceiverServices = receiverservices
-	vm.ReceiverIP = receiverip
-	vm.ReceiverPort = receiverport
-	vm.SenderServices = senderservices
-	vm.SenderIp = senderip
-	vm.SenderPort = senderport
-	if nonce == nil{
-		vm.Nonce = utils.ToLittleEndian(utils.ToHex(int64(rand.Intn(int(math.Pow(2,64))))),8)
-	}else{
-		vm.Nonce = nonce
+	defer ln.Close()
+
+	chain := blockchain.ContinueBlockChain(nodeID)
+	defer chain.Database.Close()
+	go CloseDB(chain)
+
+	if nodeAddress != KnownNodes[0]{
+		SendVersion(KnownNodes[0], chain)
 	}
-	vm.UserAgent = useragent
-	vm.LatestBlock = latestblock
-	if relay {
-		vm.Relay = []byte{0x01}
-	}else{
-		vm.Relay = []byte{0x00}
+	for{
+		conn, err := ln.Accept()
+		if err != nil{
+			log.Panic(err)
+		}
+		go HandleConnection(conn, chain)
 	}
-}
-
-func (vm *VersionMessage) Serialize() []byte{
-	result := utils.ToLittleEndian(vm.Version,4)
-	result = append(result, utils.ToLittleEndian(vm.Services,8)...)
-	result = append(result, utils.ToLittleEndian(vm.Timestamp,8)...)
-	result = append(result, utils.ToLittleEndian(vm.ReceiverServices,8)...)
-	result = append(result, []byte{0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff}...)
-	result = append(result, vm.ReceiverIP...)
-	result = append(result, utils.ToLittleEndian(vm.ReceiverPort,2)...)
-	result = append(result, utils.ToLittleEndian(vm.SenderServices,8)...)
-	result = append(result, []byte{0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff}...)
-	result = append(result, vm.SenderIp...)
-	result = append(result, utils.ToLittleEndian(vm.SenderPort,2)...)
-	result = append(result, vm.Nonce...)
-	buf := []byte{}
-	utils.EncodeVarint(*big.NewInt(int64(len(vm.UserAgent))),&buf)
-	result = append(result, buf...)
-	result = append(result, vm.UserAgent...)
-	result = append(result, utils.ToLittleEndian(vm.LatestBlock,4)...)
-	result = append(result, vm.Relay...)
-	return result
-}
-
-type Node struct{
-	//the ip and port of the host
-	Host string
-}
-
-//send handshake
-func (n *Node) Send(message VersionMessage){
-	envelope := NetworkEnvelope{NETWORK_MAGIC,command,message.Serialize()}
-	SendData(n.Host,envelope.Serialize())
-}
-
-//read the response of the handshake
-func (n *Node) Read(){
-	
 }
 
 //this function need to be reviewed later
@@ -224,240 +116,6 @@ func RequestBlocks(){
 
 func ExtractCmd(request []byte) []byte{
 	return request[:commandLength]
-}
-
-func SendAddr(address string){
-	nodes := Addr{KnownNodes}
-	nodes.AddrList = append(nodes.AddrList, nodeAddress)
-	payload := GobEncode(nodes)
-	request := append(CmdToBytes("addr"),payload ...)
-
-	SendData(address,request)
-} 
-
-func SendBlock(addr string, b *blockchain.Block){
-	data := Block{nodeAddress, b.Serialize()}
-	payload := GobEncode(data)
-	request := append(CmdToBytes("block"),payload ...)
-
-	SendData(addr, request)
-}
-
-func SendInv(address, kind string, items [][]byte){
-	inventory := Inv{nodeAddress, kind, items}
-	payload := GobEncode(inventory)
-	request := append(CmdToBytes("inv"),payload ...)
-
-	SendData(address, request)
-}
-
-func SendTx(addr string, tnx *blockchain.Transaction){
-	data := Tx{nodeAddress, tnx.Serialize()}
-	payload := GobEncode(data)
-	request := append(CmdToBytes("tx"), payload ...)
-
-	SendData(addr, request)
-}
-
-func SendVersion(addr string, chain *blockchain.BlockChain){
-	bestHeight := chain.GetBestHeight()
-	payload := GobEncode(Version{version, bestHeight,nodeAddress})
-	request := append(CmdToBytes("version"),payload ...)
-	SendData(addr, request)
-}
-
-func SendGetBlocks(address string){
-	payload := GobEncode(GetBlocks{nodeAddress})
-	request := append(CmdToBytes("getblocks"), payload ...)
-
-	SendData(address,request)
-}
-
-func SendGetData(address, kind string, id []byte){
-	payload := GobEncode(GetData{nodeAddress,kind,id})
-	request := append(CmdToBytes("getdata"),payload ...)
-
-	SendData(address, request)
-}
-
-func HandleAddr(request []byte){
-	var buff bytes.Buffer
-	var payload Addr
-
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	KnownNodes = append(KnownNodes, payload.AddrList...)
-	fmt.Printf("there are %d known nodes\n",len(KnownNodes))
-	RequestBlocks()
-}
-
-func HandleInv(request []byte, chain *blockchain.BlockChain){
-	var buff bytes.Buffer
-	var payload Inv
-
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil{
-		log.Panic(err)
-	}
-
-	fmt.Printf("Recevied inventory with %d %s \n",len(payload.Items),payload.Type)
-
-	if payload.Type == "block"{
-		blocksInTransit = payload.Items
-		blockHash := payload.Items[0]
-
-		SendGetData(payload.AddrFrom,"block",blockHash)
-
-		newInTransit := [][]byte{}
-		for _,b := range blocksInTransit{
-			if bytes.Compare(b,blockHash) != 0{
-				newInTransit = append(newInTransit, b)
-			}
-		}
-		blocksInTransit = newInTransit
-	}
-
-	if payload.Type == "tx"{
-		txID := payload.Items[0]
-		
-		if memoryPool[hex.EncodeToString(txID)].ID == nil{
-			SendGetData(payload.AddrFrom,"tx",txID)
-		}
-	}
-}
-
-func HandleBlock(request []byte, chain *blockchain.BlockChain){
-	var buff bytes.Buffer
-	var payload Block
-
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil {
-		log.Panic(err)
-	}	
-
-	blockData := payload.Block
-	block := blockchain.Deserialize(blockData)
-
-	fmt.Println("Recevied a new block!")
-	chain.AddBlock(block)
-
-	fmt.Printf("added block %x\n",block.Hash)
-
-	if len(blocksInTransit) > 0{
-		blockHash := blocksInTransit[0]
-		SendGetData(payload.AddrFrom,"block",blockHash)
-		blocksInTransit = blocksInTransit[1:]
-	}else{
-		UTXOSet := blockchain.UTXOSet{chain}
-		UTXOSet.Reindex()
-	}
-}
-
-func HandleGetBlocks(request []byte, chain *blockchain.BlockChain){
-	var buff bytes.Buffer
-	var payload GetBlocks
-
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil{
-		log.Panic(err)
-	}
-
-	blocks := chain.GetBlockHashes()
-	SendInv(payload.AddrFrom,"block",blocks)
-}
-
-func HandleGetData(request []byte, chain *blockchain.BlockChain){
-	var buff bytes.Buffer
-	var payload GetData
-
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil{
-		log.Panic(err)
-	}
-
-	if payload.Type == "block"{
-		block, err := chain.GetBlock([]byte(payload.ID))
-		if err != nil{
-			return 
-		}
-
-		SendBlock(payload.AddrFrom,&block)
-	}
-
-	if payload.Type == "tx" {
-		txID := hex.EncodeToString(payload.ID)
-		tx := memoryPool[txID]
-
-		SendTx(payload.AddrFrom, &tx)
-	}
-}
-
-func HandleVersion(request []byte, chain *blockchain.BlockChain){
-	var buff bytes.Buffer
-	var payload Version
-
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil{
-		log.Panic(err)
-	}
-
-	bestHeight := chain.GetBestHeight()
-	otherHeight := payload.BestHeight
-
-	if bestHeight < otherHeight {
-		SendGetBlocks(payload.AddrFrom)
-	}else if bestHeight > otherHeight{
-		SendVersion(payload.AddrFrom,chain)
-	}
-
-	if !NodeIsKnown(payload.AddrFrom){
-		KnownNodes = append(KnownNodes, payload.AddrFrom)
-	}
-}
-
-func HandleTx(request []byte, chain *blockchain.BlockChain){
-	var buff bytes.Buffer
-	var payload Tx
-
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil{
-		log.Panic(err)
-	}
-
-	txData := payload.Transaction
-	tx := blockchain.DeserializeTransaction(txData)
-	memoryPool[hex.EncodeToString(tx.ID)] = tx
-
-	fmt.Printf("%s, %d\n",nodeAddress,len(memoryPool))
-	
-	if nodeAddress == KnownNodes[0]{
-		for _,node := range KnownNodes{
-			if node != nodeAddress && node != payload.AddrFrom{
-				SendInv(node, "tx", [][]byte{tx.ID})
-			}
-		}
-	} else {
-		if len(memoryPool) >= 2 && len(minerAddress) > 0{
-			MineTx(chain)
-		}
-	}
 }
 
 func MineTx(chain *blockchain.BlockChain){
@@ -498,85 +156,6 @@ func MineTx(chain *blockchain.BlockChain){
 	 if len(memoryPool) > 0{
 		 MineTx(chain)
 	 }
-}
-
-func SendData(addr string,data []byte){
-	conn, err := net.Dial(PROTOCOL,addr)
-
-	if err != nil{
-		fmt.Printf("%s is not available\n",addr)
-		var updatedNodes []string
-
-		for _,node := range KnownNodes{
-			if node != addr{
-				updatedNodes = append(updatedNodes, node)
-			}
-		}
-
-		KnownNodes = updatedNodes
-
-		return
-	}
-
-	defer conn.Close()
-	_,err = io.Copy(conn, bytes.NewReader(data))
-	if err != nil{
-		log.Panic(err)
-	}
-}
-
-func HandleConnection(conn net.Conn, chain *blockchain.BlockChain){
-	req,err := ioutil.ReadAll(conn)
-	defer conn.Close()
-
-	if err != nil{
-		log.Panic(err)
-	}
-	command := BytesToCmd(req[:commandLength])
-	fmt.Printf("Received %s command\n",command)
-
-	switch command{
-	case "addr":
-		HandleAddr(req)
-	case "block":
-		HandleBlock(req,chain)
-	case "inv":
-		HandleInv(req, chain)
-	case "getblocks":
-		HandleGetBlocks(req,chain)
-	case "getdata":
-		HandleGetData(req,chain)
-	case "tx":
-		HandleTx(req,chain)
-	case "version":
-		HandleVersion(req,chain)
-	default:
-		fmt.Println("Unknown command")
-	}
-}
-
-func StartServer(nodeID, minerAddress string){
-	nodeAddress = fmt.Sprintf("%s%s",minerAddress,PORT)
-	ln, err := net.Listen(PROTOCOL, nodeAddress)
-	if err != nil{
-		log.Panic(err)
-	}
-	defer ln.Close()
-
-	chain := blockchain.ContinueBlockChain(nodeID)
-	defer chain.Database.Close()
-	go CloseDB(chain)
-
-	if nodeAddress != KnownNodes[0]{
-		SendVersion(KnownNodes[0], chain)
-	}
-	for{
-		conn, err := ln.Accept()
-		if err != nil{
-			log.Panic(err)
-		}
-		go HandleConnection(conn, chain)
-	}
 }
 
 func GobEncode(data interface{}) []byte{
