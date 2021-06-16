@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"math/big"
 	"math/rand"
 	"net"
 	"os"
@@ -25,6 +26,7 @@ import (
 )
 
 const (
+	PORT = ":9333"
 	PROTOCOL = "tcp"
 	VERSION  = 1
 	COMMANDLENGTH = 12
@@ -35,7 +37,7 @@ var NETWORK_MAGIC = []byte{0x63,0x6d,0x6c,0x63}
 var(
 	nodeAddress string
 	minerAddress string
-	KnownNodes = []string{"localhost:9000"}
+	KnownNodes = []string{"localhost:9333"}
 	blocksInTransit = [][]byte{}
 	memoryPool = make(map[string]blockchain.Transaction)
 )
@@ -152,6 +154,44 @@ func (vm *VersionMessage) Init(version, services, timestamp, receiverservices, r
 	}else{
 		vm.Relay = []byte{0x00}
 	}
+}
+
+func (vm *VersionMessage) Serialize() []byte{
+	result := utils.ToLittleEndian(vm.Version,4)
+	result = append(result, utils.ToLittleEndian(vm.Services,8)...)
+	result = append(result, utils.ToLittleEndian(vm.Timestamp,8)...)
+	result = append(result, utils.ToLittleEndian(vm.ReceiverServices,8)...)
+	result = append(result, []byte{0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff}...)
+	result = append(result, vm.ReceiverIP...)
+	result = append(result, utils.ToLittleEndian(vm.ReceiverPort,2)...)
+	result = append(result, utils.ToLittleEndian(vm.SenderServices,8)...)
+	result = append(result, []byte{0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xff,0xff}...)
+	result = append(result, vm.SenderIp...)
+	result = append(result, utils.ToLittleEndian(vm.SenderPort,2)...)
+	result = append(result, vm.Nonce...)
+	buf := []byte{}
+	utils.EncodeVarint(*big.NewInt(int64(len(vm.UserAgent))),&buf)
+	result = append(result, buf...)
+	result = append(result, vm.UserAgent...)
+	result = append(result, utils.ToLittleEndian(vm.LatestBlock,4)...)
+	result = append(result, vm.Relay...)
+	return result
+}
+
+type Node struct{
+	//the ip and port of the host
+	Host string
+}
+
+//send handshake
+func (n *Node) Send(message VersionMessage){
+	envelope := NetworkEnvelope{NETWORK_MAGIC,command,message.Serialize()}
+	SendData(n.Host,envelope.Serialize())
+}
+
+//read the response of the handshake
+func (n *Node) Read(){
+	
 }
 
 //this function need to be reviewed later
@@ -461,7 +501,7 @@ func MineTx(chain *blockchain.BlockChain){
 }
 
 func SendData(addr string,data []byte){
-	conn, err := net.Dial(protocol,addr)
+	conn, err := net.Dial(PROTOCOL,addr)
 
 	if err != nil{
 		fmt.Printf("%s is not available\n",addr)
@@ -516,9 +556,8 @@ func HandleConnection(conn net.Conn, chain *blockchain.BlockChain){
 }
 
 func StartServer(nodeID, minerAddress string){
-	nodeAddress = fmt.Sprintf("localhost:%s",nodeID)
-	minerAddress = minerAddress
-	ln, err := net.Listen(protocol, nodeAddress)
+	nodeAddress = fmt.Sprintf("%s%s",minerAddress,PORT)
+	ln, err := net.Listen(PROTOCOL, nodeAddress)
 	if err != nil{
 		log.Panic(err)
 	}
