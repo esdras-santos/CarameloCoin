@@ -10,23 +10,23 @@ import (
 
 
 type VersionMessage struct {
-	Version          []byte
-	Services         []byte
-	Timestamp        []byte
-	ReceiverServices []byte
-	ReceiverIP       []byte
-	ReceiverPort     []byte
-	SenderServices   []byte
-	SenderIp         []byte
-	SenderPort       []byte
-	Nonce            []byte
-	UserAgent        []byte
-	LatestBlock      []byte
+	Version          []byte //4 bytes
+	Services         []byte //8 bytes le
+	Timestamp        []byte //8 bytes le
+	ReceiverServices []byte	//8 bytes le
+	ReceiverIP       []byte //4 bytes 
+	ReceiverPort     []byte //2 bytes
+	SenderServices   []byte //8 bytes le
+	SenderIp         []byte //4 bytes
+	SenderPort       []byte //2 bytes
+	Nonce            []byte //8 bytes
+	UserAgent        []byte //dinamic length
+	LatestBlock      []byte	//4 bytes
 	//relay must have 01 to true or 00 to false
-	Relay []byte
+	Relay []byte // 1 byte
 }
 
-func (vm *VersionMessage) Init(version, services, timestamp, receiverservices, receiverip, receiverport, senderservices, senderip, senderport, nonce, useragent, latestblock []byte, relay bool) {
+func (vm *VersionMessage) Init(version, services, timestamp, receiverservices, receiverip, receiverport, senderservices, senderip, senderport, nonce, useragent, latestblock, relay []byte) {
 	vm.Version = version
 	vm.Services = services
 	if timestamp == nil {
@@ -47,11 +47,35 @@ func (vm *VersionMessage) Init(version, services, timestamp, receiverservices, r
 	}
 	vm.UserAgent = useragent
 	vm.LatestBlock = latestblock
-	if relay {
-		vm.Relay = []byte{0x01}
-	} else {
-		vm.Relay = []byte{0x00}
+	vm.Relay = relay
+}
+
+//will bug if the is IPv6
+func (vm *VersionMessage) Parse(data []byte) {
+	vm.Version = utils.ToLittleEndian(data[:4],4)
+	vm.Services = utils.ToLittleEndian(data[4:12],8)
+	vm.Timestamp = utils.ToLittleEndian(data[12:20],8)
+	vm.ReceiverServices = utils.ToLittleEndian(data[20:28],8)
+	vm.ReceiverIP = data[40:44]
+	vm.ReceiverPort = utils.ToLittleEndian(data[44:46],2)
+	vm.SenderServices = utils.ToLittleEndian(data[46:54],8)
+	vm.SenderIp = utils.ToLittleEndian(data[66:70],4)
+	vm.SenderPort = utils.ToLittleEndian(data[70:72],2)
+	vm.Nonce = data[72:80]
+	var len uint
+	utils.ReadVarint(data[80:],&len)
+	var startIn uint
+	if len <= 253{
+		startIn = 81
+	}else if len <= 254{
+		startIn = 82
+	}else if len <= 255{
+		startIn = 83
 	}
+	sl := startIn+len
+	vm.UserAgent = data[startIn:sl]
+	vm.LatestBlock = utils.ToLittleEndian(data[sl:sl+4],4)
+	vm.Relay = data[sl+4:]
 }
 
 func (vm *VersionMessage) Serialize() []byte {

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	PORT = ":9333"
+	PORT = "9333"
 	PROTOCOL = "tcp"
 	VERSION  = 1
 	COMMANDLENGTH = 12
@@ -63,7 +63,7 @@ type Tx struct{
 }
 
 func StartServer(nodeID, minerAddress string){
-	nodeAddress = fmt.Sprintf("%s%s",minerAddress,PORT)
+	nodeAddress = fmt.Sprintf("%s:%s",minerAddress,PORT)
 	ln, err := net.Listen(PROTOCOL, nodeAddress)
 	if err != nil{
 		log.Panic(err)

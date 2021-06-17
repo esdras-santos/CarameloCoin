@@ -10,8 +10,8 @@ import (
 
 
 type NetworkEnvelope struct {
-	NetworkMagic []byte
-	Command      []byte
+	NetworkMagic []byte // 4 bytes
+	Command      []byte // 12 bytes
 	Payload      []byte
 }
 
@@ -38,10 +38,18 @@ func (ne *NetworkEnvelope) Parse(s []byte) *NetworkEnvelope {
 
 func (ne *NetworkEnvelope) Serialize() []byte {
 	result := ne.NetworkMagic
-	result = append(result, ne.Command...)
+	result = append(result, command(ne.Command)...)
 	result = append(result, utils.ToLittleEndian(utils.ToHex(int64(len(ne.Payload))), 4)...)
 	checksum := sha256.Sum256(ne.Payload)
 	result = append(result, checksum[:4]...)
 	result = append(result, ne.Payload...)
 	return result
+}
+
+func command(com []byte) []byte{
+	cl := len(com)
+	for i := 0;i <= cl-12;i++{
+		com = append(com, 0x00)
+	}
+	return com
 }

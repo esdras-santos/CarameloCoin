@@ -45,9 +45,25 @@ func SendTx(addr string, tnx *blockchain.Transaction) {
 
 func SendVersion(addr string, chain *blockchain.BlockChain) {
 	bestHeight := chain.GetBestHeight()
-	payload := GobEncode(Version{version, bestHeight, nodeAddress})
-	request := append(CmdToBytes("version"), payload...)
-	SendData(addr, request)
+	message := VersionMessage{}
+	version := [4]byte{0x00000001}
+	services := [8]byte{0x00000000000000}
+	recServ := [8]byte{0x00000000000000}
+	recIp := []byte(addr)
+	recPort := []byte(PORT)
+	sendServ := [8]byte{0x00000000000000}
+	// getIp() function should return the current Ip of the node in []byte
+	sendIp := getIp()
+	sendPort := []byte(PORT)
+	nonce := [8]byte{0x6e,0x6f,0x74,0x20,0x6d,0x65,0x21,0x21}
+	userAge := []byte("/CarameloCoin:0.1/")
+	lateBlock := []byte{byte(bestHeight)}
+	rel := []byte{0x01}
+
+	message.Init(version[:],services[:],nil,recServ[:],recIp,recPort,sendServ[:],sendIp,sendPort,nonce[:],userAge,lateBlock,rel)
+ 
+	ne := NetworkEnvelope{NETWORK_MAGIC,[]byte("version"),message.Serialize()}
+	SendData(addr, ne.Serialize())
 }
 
 func SendGetBlocks(address string) {

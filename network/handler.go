@@ -2,6 +2,7 @@ package network
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"gochain/blockchain"
@@ -137,27 +138,15 @@ func HandleGetData(request []byte, chain *blockchain.BlockChain) {
 }
 
 func HandleVersion(request []byte, chain *blockchain.BlockChain) {
-	var buff bytes.Buffer
-	var payload Version
+	var payload VersionMessage
 
-	buff.Write(request[commandLength:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil {
-		log.Panic(err)
-	}
+	payload.Parse(request[COMMANDLENGTH+4:])
+		
+	SendVersion(string(payload.SenderIp), chain)
+	
 
-	bestHeight := chain.GetBestHeight()
-	otherHeight := payload.BestHeight
-
-	if bestHeight < otherHeight {
-		SendGetBlocks(payload.AddrFrom)
-	} else if bestHeight > otherHeight {
-		SendVersion(payload.AddrFrom, chain)
-	}
-
-	if !NodeIsKnown(payload.AddrFrom) {
-		KnownNodes = append(KnownNodes, payload.AddrFrom)
+	if !NodeIsKnown(string(payload.SenderIp)) {
+		KnownNodes = append(KnownNodes, string(payload.SenderIp))
 	}
 }
 
