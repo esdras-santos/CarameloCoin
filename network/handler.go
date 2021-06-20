@@ -142,6 +142,7 @@ func HandleVersion(request []byte, chain *blockchain.BlockChain) {
 
 	payload.Parse(request[COMMANDLENGTH+4:])
 		
+	SendVerAck(string(payload.SenderIp))
 	SendVersion(string(payload.SenderIp), chain)
 	
 
@@ -150,11 +151,20 @@ func HandleVersion(request []byte, chain *blockchain.BlockChain) {
 	}
 }
 
+func HandleVerAck(request []byte){
+	var payload VersionMessage
+
+	payload.Parse(request[COMMANDLENGTH+4:])
+
+	//handshack maded
+	VERACKRECEIVED[string(payload.SenderIp)] = true
+}
+
 func HandleTx(request []byte, chain *blockchain.BlockChain) {
 	var buff bytes.Buffer
 	var payload Tx
 
-	buff.Write(request[commandLength:])
+	buff.Write(request[command:])
 	dec := gob.NewDecoder(&buff)
 	err := dec.Decode(&payload)
 	if err != nil {
@@ -183,28 +193,54 @@ func HandleTx(request []byte, chain *blockchain.BlockChain) {
 func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
 	req, err := ioutil.ReadAll(conn)
 	defer conn.Close()
-
+	connectedNode := conn.RemoteAddr().String()
 	if err != nil {
 		log.Panic(err)
 	}
-	command := BytesToCmd(req[:commandLength])
+	command := BytesToCmd(req[4:COMMANDLENGTH+4])
 	fmt.Printf("Received %s command\n", command)
 
 	switch command {
 	case "addr":
-		HandleAddr(req)
+		if VERACKRECEIVED[connectedNode]{
+			HandleAddr(req)
+		}else{
+			log.Panic("you don't made the handshake")
+		}
 	case "block":
-		HandleBlock(req, chain)
+		if VERACKRECEIVED[connectedNode]{
+			HandleBlock(req, chain)
+		}else{
+			log.Panic("you don't made the handshake")
+		}		
 	case "inv":
-		HandleInv(req, chain)
+		if VERACKRECEIVED[connectedNode]{
+			HandleInv(req, chain)
+		}else{
+			log.Panic("you don't made the handshake")
+		}
 	case "getblocks":
-		HandleGetBlocks(req, chain)
+		if VERACKRECEIVED[connectedNode]{
+			HandleGetBlocks(req, chain)
+		}else{
+			log.Panic("you don't made the handshake")
+		}
 	case "getdata":
-		HandleGetData(req, chain)
+		if VERACKRECEIVED[connectedNode]{
+			HandleGetData(req, chain)
+		}else{
+			log.Panic("you don't made the handshake")
+		}	
 	case "tx":
-		HandleTx(req, chain)
+		if VERACKRECEIVED[connectedNode]{
+			HandleTx(req, chain)
+		}else{
+			log.Panic("you don't made the handshake")
+		}		
 	case "version":
 		HandleVersion(req, chain)
+	case "verack":
+		HandleVerAck(req)
 	default:
 		fmt.Println("Unknown command")
 	}

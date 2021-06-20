@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"gochain/blockchain"
+	"gochain/utils"
 	"io"
 	"log"
 	"net"
@@ -57,13 +58,18 @@ func SendVersion(addr string, chain *blockchain.BlockChain) {
 	sendPort := []byte(PORT)
 	nonce := [8]byte{0x6e,0x6f,0x74,0x20,0x6d,0x65,0x21,0x21}
 	userAge := []byte("/CarameloCoin:0.1/")
-	lateBlock := []byte{byte(bestHeight)}
+	lateBlock := utils.ToHex(int64(bestHeight))
 	rel := []byte{0x01}
 
 	message.Init(version[:],services[:],nil,recServ[:],recIp,recPort,sendServ[:],sendIp,sendPort,nonce[:],userAge,lateBlock,rel)
  
 	ne := NetworkEnvelope{NETWORK_MAGIC,[]byte("version"),message.Serialize()}
 	SendData(addr, ne.Serialize())
+}
+
+func SendVerAck(address string){
+	ne := NetworkEnvelope{NETWORK_MAGIC,[]byte("verack"),nil}
+	SendData(address,ne.Serialize())
 }
 
 func SendGetBlocks(address string) {

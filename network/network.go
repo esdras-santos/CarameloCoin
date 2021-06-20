@@ -24,6 +24,9 @@ const (
 //hex equivalenty to cmlc
 var NETWORK_MAGIC = []byte{0x63,0x6d,0x6c,0x63}
 
+//will check if the handshack was maded
+var VERACKRECEIVED map[string]bool
+
 var(
 	nodeAddress string
 	minerAddress string
