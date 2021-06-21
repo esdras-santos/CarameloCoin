@@ -14,8 +14,6 @@ const VERACKMESSAGE = "verack"
 type HandShakeNode struct {
 	//the ip and port of the host
 	HostAddress string
-	Conn        net.Conn
-	Stream      []byte
 }
 
 var bestHeight = chain.GetBestHeight()
@@ -39,16 +37,14 @@ var rel = []byte{0x01}
 //this need to started in a goroutine because of infity loop
 func (hsn *HandShakeNode) Init(minerAdrress, host string) {
 	hsn.HostAddress = fmt.Sprintf("%s%s", host, PORT)
-	var err error
-	hsn.Conn, err = net.Dial(PROTOCOL, hsn.HostAddress)
-	Handle(err)
-	
 }
 
 //send handshake
 func (hsn *HandShakeNode) Send(message VersionMessage, handmess string) {
+	conn,err := net.Dial(PROTOCOL,hsn.HostAddress)
+	Handle(err)
 	envelope := NetworkEnvelope{NETWORK_MAGIC, []byte(handmess), message.Serialize()}
-	_, err := io.Copy(hsn.Conn, bytes.NewReader(envelope.Serialize()))
+	_, err = io.Copy(conn, bytes.NewReader(envelope.Serialize()))
 	Handle(err)
 }
 

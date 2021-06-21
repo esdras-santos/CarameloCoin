@@ -224,6 +224,13 @@ func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
 			HandleGetBlocks(req, chain)
 		}else{
 			log.Panic("you don't made the handshake")
+		}	
+	case "getheaders":
+		if VERACKRECEIVED[connectedNode]{
+			//this need return all the block headers asked with a headers command
+			HandleGetHeaders(req, chain)
+		}else{
+			log.Panic("you don't made the handshake")
 		}
 	case "getdata":
 		if VERACKRECEIVED[connectedNode]{
