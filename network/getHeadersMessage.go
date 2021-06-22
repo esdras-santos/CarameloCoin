@@ -32,7 +32,11 @@ func (gh *GetHeadersMessage) Init(version, numHashs, startBlock, endBlock []byte
 	}
 }
 
-func (gh *GetHeadersMessage) Serialize() []byte {
+func (gh GetHeadersMessage) GetCommand() []byte{
+	return gh.Command
+}
+
+func (gh GetHeadersMessage) Serialize() []byte {
 	result := utils.ToLittleEndian(gh.Version,4)
 	result = append(result, gh.NumberOfHashs...)
 	result = append(result, utils.ToLittleEndian(gh.StartingBlock,32)...)

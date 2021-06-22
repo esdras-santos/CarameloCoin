@@ -35,22 +35,22 @@ func ReadVarint(s []byte, buf *uint){
 	}
 }
 
-func EncodeVarint(i big.Int, buf *[]byte) {
+func EncodeVarint(i int64, buf *[]byte) {
 	var bignum, ok = new(big.Int).SetString("0x10000000000000000", 0)
-	ibytes := i.Bytes()
-	lebytes := ToLittleEndian(ibytes, 4)
+	ibytes := ToHex(i)
+	lebytes := ToLittleEndian(ibytes, len(ibytes))
 	if !ok {
 		log.Panic("fails to create the big number")
 	}
-	if cmp := i.Cmp(big.NewInt(0xfd)); cmp < 0 {
+	if  i < 0xfd {
 		*buf = ibytes
-	} else if cmp := i.Cmp(big.NewInt(0x10000)); cmp < 0 {
+	} else if i < 0x10000 {
 		*buf = lebytes
 		*buf = append([]byte{0xfd}, *buf...)
-	} else if cmp := i.Cmp(big.NewInt(0x100000000)); cmp < 0 {
+	} else if  i < 0x100000000 {
 		*buf = lebytes
 		*buf = append([]byte{0xfe}, *buf...)
-	} else if cmp := i.Cmp(bignum); cmp < 0 {
+	} else if  big.NewInt(i).Cmp(bignum) < 0 {
 		*buf = lebytes
 		*buf = append([]byte{0xff}, *buf...)
 	} else {

@@ -137,13 +137,32 @@ func HandleGetData(request []byte, chain *blockchain.BlockChain) {
 	}
 }
 
+//request for headers
+//get all the hashs in the DB from the startBlock to the endBlock
+//put all the blocks as argument in HeadersMessage struct
+//send the HeadersMessage
+func HandleGetHeaders(request []byte, chain *blockchain.BlockChain) {
+	var payload GetHeadersMessage
+
+	payload.Parse(request[COMMANDLENGTH+4:])
+	
+	
+
+
+}
+
+//response for the getheaders command
+//receive the headers and add to the database 
+func HandleHeaders(request []byte, chain *blockchain.BlockChain) {}
+
 func HandleVersion(request []byte, chain *blockchain.BlockChain) {
 	var payload VersionMessage
 
 	payload.Parse(request[COMMANDLENGTH+4:])
-		
-	SendVerAck(string(payload.SenderIp))
-	SendVersion(string(payload.SenderIp), chain)
+	var vam VerAckMessage
+	var vm VersionMessage
+	SendData(string(payload.SenderIp),vam)
+	SendData(string(payload.SenderIp),vm)
 	
 
 	if !NodeIsKnown(string(payload.SenderIp)) {
@@ -225,10 +244,19 @@ func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
 		}else{
 			log.Panic("you don't made the handshake")
 		}	
+	//request headers
 	case "getheaders":
 		if VERACKRECEIVED[connectedNode]{
 			//this need return all the block headers asked with a headers command
 			HandleGetHeaders(req, chain)
+		}else{
+			log.Panic("you don't made the handshake")
+		}
+	//response of getheaders command
+	case "headers":
+		if VERACKRECEIVED[connectedNode]{
+			//this need return all the block headers asked with a headers command
+			HandleHeaders(req, chain)
 		}else{
 			log.Panic("you don't made the handshake")
 		}

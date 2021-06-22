@@ -18,6 +18,20 @@ func (hm *HeadersMessage) Init(blocks []blockchain.BlockHeader){
 	hm.Blocks = blocks
 }
 
+func (hm HeadersMessage) GetCommand() []byte{
+	return hm.Command
+}
+
+func (hm HeadersMessage) Serialize() []byte{
+	var result []byte
+	utils.EncodeVarint(int64(len(hm.Blocks)),&result)
+	for _,block := range hm.Blocks{
+		result = append(result, block.Serialize()...)
+		result = append(result, 0x00)
+	}
+	return result
+}
+
 func (hm *HeadersMessage) Parse(data []byte){
 	var numberBlocks uint 
 	utils.ReadVarint(data,&numberBlocks)

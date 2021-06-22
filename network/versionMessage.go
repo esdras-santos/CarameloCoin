@@ -3,13 +3,13 @@ package network
 import (
 	"gochain/utils"
 	"math"
-	"math/big"
 	"math/rand"
 	"time"
 )
 
 
 type VersionMessage struct {
+	Command			 []byte
 	Version          []byte //4 bytes
 	Services         []byte //8 bytes le
 	Timestamp        []byte //8 bytes le
@@ -27,6 +27,7 @@ type VersionMessage struct {
 }
 
 func (vm *VersionMessage) Init(version, services, timestamp, receiverservices, receiverip, receiverport, senderservices, senderip, senderport, nonce, useragent, latestblock, relay []byte) {
+	vm.Command = []byte("version")
 	vm.Version = version
 	vm.Services = services
 	if timestamp == nil {
@@ -78,7 +79,11 @@ func (vm *VersionMessage) Parse(data []byte) {
 	vm.Relay = data[sl+4:]
 }
 
-func (vm *VersionMessage) Serialize() []byte {
+func (vm VersionMessage) GetCommand() []byte{
+	return vm.Command
+}
+
+func (vm VersionMessage) Serialize() []byte {
 	result := utils.ToLittleEndian(vm.Version, 4)
 	result = append(result, utils.ToLittleEndian(vm.Services, 8)...)
 	result = append(result, utils.ToLittleEndian(vm.Timestamp, 8)...)
@@ -92,7 +97,7 @@ func (vm *VersionMessage) Serialize() []byte {
 	result = append(result, utils.ToLittleEndian(vm.SenderPort, 2)...)
 	result = append(result, vm.Nonce...)
 	buf := []byte{}
-	utils.EncodeVarint(*big.NewInt(int64(len(vm.UserAgent))), &buf)
+	utils.EncodeVarint(int64(len(vm.UserAgent)), &buf)
 	result = append(result, buf...)
 	result = append(result, vm.UserAgent...)
 	result = append(result, utils.ToLittleEndian(vm.LatestBlock, 4)...)

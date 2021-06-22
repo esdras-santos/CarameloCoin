@@ -11,6 +11,12 @@ import (
 )
 
 
+
+type Message interface{
+	GetCommand() []byte
+	Serialize() []byte
+}
+
 func SendAddr(address string) {
 	nodes := Addr{KnownNodes}
 	nodes.AddrList = append(nodes.AddrList, nodeAddress)
@@ -86,15 +92,18 @@ func SendGetData(address, kind string, id []byte) {
 	SendData(address, request)
 }
 
-func SendData(addr string, data []byte) {
-	conn, err := net.Dial(PROTOCOL, addr)
+
+func SendData(hostAddr string, message Message) {
+	envelope := NetworkEnvelope{NETWORK_MAGIC, message.GetCommand(), message.Serialize()}
+	host := fmt.Sprintf("%s:%s",hostAddr,PORT)
+	conn, err := net.Dial(PROTOCOL, host)
 
 	if err != nil {
-		fmt.Printf("%s is not available\n", addr)
+		fmt.Printf("%s is not available\n", host)
 		var updatedNodes []string
 
 		for _, node := range KnownNodes {
-			if node != addr {
+			if node != host {
 				updatedNodes = append(updatedNodes, node)
 			}
 		}
@@ -105,7 +114,7 @@ func SendData(addr string, data []byte) {
 	}
 
 	defer conn.Close()
-	_, err = io.Copy(conn, bytes.NewReader(data))
+	_, err = io.Copy(conn, bytes.NewReader(envelope.Serialize()))
 	if err != nil {
 		log.Panic(err)
 	}
