@@ -1,6 +1,7 @@
 package network
 
 import (
+	"gochain/blockchain"
 	"gochain/utils"
 	"math"
 	"math/rand"
@@ -26,29 +27,32 @@ type VersionMessage struct {
 	Relay []byte // 1 byte
 }
 
-func (vm *VersionMessage) Init(version, services, timestamp, receiverservices, receiverip, receiverport, senderservices, senderip, senderport, nonce, useragent, latestblock, relay []byte) {
+func (vm *VersionMessage) Init(timestamp, receiverip, nonce, relay []byte) {
+	var chain = blockchain.BlockChain{}
+	var bestHeight = chain.GetBestHeight()
+
 	vm.Command = []byte("version")
-	vm.Version = version
-	vm.Services = services
+	vm.Version = []byte{0x00000001}
+	vm.Services = []byte{0x00000000000000}
 	if timestamp == nil {
 		vm.Timestamp = utils.ToHex(time.Now().Unix())
 	} else {
 		vm.Timestamp = timestamp
 	}
-	vm.ReceiverServices = receiverservices
+	vm.ReceiverServices = []byte{0x00000000000000}
 	vm.ReceiverIP = receiverip
-	vm.ReceiverPort = receiverport
-	vm.SenderServices = senderservices
-	vm.SenderIp = senderip
-	vm.SenderPort = senderport
+	vm.ReceiverPort = []byte(PORT)
+	vm.SenderServices = []byte{0x00000000000000}
+	vm.SenderIp = []byte(NODEIP)
+	vm.SenderPort = []byte(PORT)
 	if nonce == nil {
 		vm.Nonce = utils.ToLittleEndian(utils.ToHex(int64(rand.Intn(int(math.Pow(2, 64))))), 8)
 	} else {
-		vm.Nonce = nonce
+		vm.Nonce = []byte{0x6e,0x6f,0x74,0x20,0x6d,0x65,0x21,0x21}
 	}
-	vm.UserAgent = useragent
-	vm.LatestBlock = latestblock
-	vm.Relay = relay
+	vm.UserAgent = []byte("/CarameloCoin:0.1/")
+	vm.LatestBlock = utils.ToHex(bestHeight)
+	vm.Relay = []byte{0x01}
 }
 
 //will bug if the is IPv6

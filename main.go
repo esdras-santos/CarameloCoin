@@ -4,8 +4,10 @@ import (
 	//"os"
 	//"gochain/cli"
 
+	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
 )
 
 var FUNCTIONS = map[int]interface{}{
@@ -27,10 +29,20 @@ func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
-	a := []int{0,1,2,3,4,5}
-	fmt.Println(a[:4])
-	
+	var a int64
+	a = 256
+	b := ToHex(a)
+	fmt.Println(len(b))
+}
 
+func ToHex(num int64) []byte{
+	buff := new(bytes.Buffer)
+	err := binary.Write(buff,binary.BigEndian,num)
+	if err != nil{
+		log.Panic(err)
+	}	
+
+	return buff.Bytes()
 }
 
 func mapkey(m map[byte]string, value string) (key byte, ok bool) {
@@ -44,21 +56,6 @@ func mapkey(m map[byte]string, value string) (key byte, ok bool) {
 	return
 }
 
-func ReadVarint(s []byte, buf *uint){
-	i := s[0]
-	if i == 0xfd{
-		a := binary.LittleEndian.Uint16(s[1:3])
-		*buf = uint(a)
-	}else if i == 0xfe{
-		a := binary.LittleEndian.Uint32(s[1:5])
-		*buf = uint(a)
-	}else if i == 0xff{
-		a := binary.LittleEndian.Uint64(s[1:9])
-		*buf = uint(a)
-	}else{
-		*buf = uint(i)
-	}
-}
 
 func toLittleEndian(bytes []byte) []byte{
 	var le []byte

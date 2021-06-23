@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"log"
 	"math/big"
+
+	externalip "github.com/glendc/go-external-ip"
 )
 
 
@@ -56,6 +58,15 @@ func EncodeVarint(i int64, buf *[]byte) {
 	} else {
 		log.Panic("integer too large")
 	}
+}
+
+func GetIp() string{
+	consensus := externalip.DefaultConsensus(nil, nil)
+	ip, err := consensus.ExternalIP()
+    if err != nil {
+         log.Panic(err)
+    }
+	return ip.String() // print IPv4/IPv6 in string format
 }
 
 func ToHex(num int64) []byte{

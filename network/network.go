@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"gochain/blockchain"
+	"gochain/utils"
 	"log"
 	"net"
 	"os"
@@ -21,6 +22,10 @@ const (
 	VERSION  = 1
 	COMMANDLENGTH = 12
 )
+
+//the ip of your node
+var NODEIP = utils.GetIp()
+
 //hex equivalenty to cmlc
 var NETWORK_MAGIC = []byte{0x63,0x6d,0x6c,0x63}
 
@@ -28,9 +33,9 @@ var NETWORK_MAGIC = []byte{0x63,0x6d,0x6c,0x63}
 var VERACKRECEIVED map[string]bool
 
 var(
-	nodeAddress string
 	minerAddress string
-	KnownNodes = []string{"localhost:9333"}
+	//hard-coded first node ip
+	KNOWNNODES = []string{"45.167.55.3:9333"}
 	blocksInTransit = [][]byte{}
 	memoryPool = make(map[string]blockchain.Transaction)
 )
@@ -65,8 +70,8 @@ type Tx struct{
 	Transaction []byte
 }
 
-func StartServer(nodeID, minerAddress string){
-	nodeAddress = fmt.Sprintf("%s:%s",minerAddress,PORT)
+func StartServer(nodeID string){
+	nodeAddress := fmt.Sprintf("%s:%s",NODEIP,PORT)
 	ln, err := net.Listen(PROTOCOL, nodeAddress)
 	if err != nil{
 		log.Panic(err)

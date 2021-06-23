@@ -20,7 +20,8 @@ type BlockHeader struct{
 }
 
 type Block struct{
-	*BlockHeader
+	Height int64
+	BH BlockHeader
 	Transactions []Transaction
 }
 
@@ -59,6 +60,38 @@ func CreateBlock(txs []*Transaction,prevHash []byte, height int) *Block{
 
 func Genesis(coinbase *Transaction) *Block{
 	return CreateBlock([]*Transaction{coinbase},[]byte{},0)
+}
+
+func (b *Block) Parse(s []byte) {
+	b.Height = int64(binary.LittleEndian.Uint64(s[:8]))
+	b.BH = b.BH.Parse(s[8:88])
+	txnlen := int64(binary.LittleEndian.Uint64(s[88:96]))
+	var lenIn uint
+	utils.ReadVarint(s[96:],&lenIn)
+	var startIn int
+	if lenIn <= 253{
+		startIn = 97
+	}else if lenIn <= 254{
+		startIn = 98
+	}else if lenIn <= 255{
+		startIn = 99
+	}
+	var i int64
+	for i = 0;i < txnlen;i++{
+		s
+	}
+}
+
+func (b *Block) Serialize() []byte{
+	result := utils.ToHex(b.Height)
+	result = append(result, b.BH.Serialize()...)
+	result = append(result,  utils.ToHex(int64(len(b.Transactions)))...)
+	for _,tx := range b.Transactions{
+		txs := tx.Serialize()
+		utils.EncodeVarint(int64(len(txs)),&result)
+		result = append(result, txs...)
+	}
+	return result
 }
 
 func (b *BlockHeader) Parse(s []byte) BlockHeader {

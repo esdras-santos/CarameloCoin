@@ -95,7 +95,7 @@ func (chain *BlockChain) GetBlockHashes() [][]byte{
 	return blocks
 }
 
-func (chain *BlockChain) GetBestHeight() int{
+func (chain *BlockChain) GetBestHeight() int64{
 	var lastBlock Block
 
 	err := chain.Database.View(func(txn *badger.Txn) error{
@@ -107,7 +107,7 @@ func (chain *BlockChain) GetBestHeight() int{
 		Handle(err)
 		lastBlockData,_ := item.Value()
 
-		lastBlock = *Deserialize(lastBlockData)
+		lastBlock = lastBlock.Parse(lastBlockData)
 
 		return nil
 	})
