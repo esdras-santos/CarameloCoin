@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"gochain/utils"
@@ -22,7 +21,7 @@ type BlockHeader struct{
 type Block struct{
 	Height int64
 	BH BlockHeader
-	Transactions []Transaction
+	Transactions []*Transaction
 }
 
 //get the current block height from the network
@@ -46,20 +45,21 @@ func (b *Block) HashTransactions() []byte{
 	return tree.RootNode.Data
 }
 
-func CreateBlock(txs []*Transaction,prevHash []byte, height int) *Block{
-	block := &BlockHeader{time.Now().Unix(),[]byte{},txs,prevHash,0,height}
-
+func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
+	block := Block{Height: height,Transactions: txs}
+	//currentTarget() must return the current target of the network and check if the difficult has changed
+	blockheader := &BlockHeader{[]byte{0x00000001},prevHash,block.HashTransactions(),utils.ToHex(time.Now().Unix()),TargetToBits(CurrentTarget()),[]byte{0x00000000}}
+	block.BH = *blockheader
 	
-	pow := NewProof(block)
-	nonce,hash := pow.Run()
-
-	block.Hash = hash[:]
-	block.Nonce = nonce
-	return block
+	pow := NewProof(&block)
+	nonce := pow.Run()
+	block.BH.Nonce = utils.ToHex(int64(nonce))
+	return &block
 }
 
-func Genesis(coinbase *Transaction) *Block{
-	return CreateBlock([]*Transaction{coinbase},[]byte{},0)
+//create genesis block
+func Genesis(coinbase *Transaction, prevHash []byte) *Block{
+	return CreateBlock([]*Transaction{coinbase},prevHash,0)
 }
 
 func (b *Block) Parse(s []byte) {
@@ -68,17 +68,28 @@ func (b *Block) Parse(s []byte) {
 	txnlen := int64(binary.LittleEndian.Uint64(s[88:96]))
 	var lenIn uint
 	utils.ReadVarint(s[96:],&lenIn)
-	var startIn int
+	var start int
 	if lenIn <= 253{
-		startIn = 97
+		start = 97
 	}else if lenIn <= 254{
-		startIn = 98
+		start = 98
 	}else if lenIn <= 255{
-		startIn = 99
+		start = 99
 	}
 	var i int64
+	end := start+int(lenIn)
+	tx := Transaction{}
 	for i = 0;i < txnlen;i++{
-		s
+		b.Transactions = append(b.Transactions, tx.Parse(s[start:end]))
+		utils.ReadVarint(s[end:],&lenIn) 
+		if lenIn <= 253{
+			start = end+1
+		}else if lenIn <= 254{
+			start = end+2
+		}else if lenIn <= 255{
+			start = end+3
+		}
+		end = start+int(lenIn)
 	}
 }
 
@@ -99,8 +110,8 @@ func (b *BlockHeader) Parse(s []byte) BlockHeader {
 	prevBlock := utils.ToLittleEndian(s[5:36],32)
 	merkleRoot := utils.ToLittleEndian(s[37:68],32)
 	timeStamp := utils.ToLittleEndian(s[69:72],4)
-	bits := s[73:76]
-	nonce := s[77:80]
+	bits := s[72:76]
+	nonce := s[76:80]
 	return BlockHeader{version,prevBlock,merkleRoot,timeStamp,bits,nonce}
 }
 
@@ -125,7 +136,7 @@ func NewProof(b *Block) *ProofOfWork{
 	var pow *ProofOfWork
 	//check if is the end of the 1 day period
 	if GetBlockHeight() % 8640 == 0{
-		b.Bits = pow.NewBits()
+		b.BH.Bits = pow.NewBits()
 	}
 	pow.Block = b
 
@@ -143,17 +154,17 @@ func (b *BlockHeader) Target() *big.Int{
 	return target
 }
 
-func (b *BlockHeader) Cip9()bool{
-	return binary.BigEndian.Uint64(b.Version) >> 29 == 0b001
-}
+// func (b *BlockHeader) Cip9()bool{
+// 	return binary.BigEndian.Uint64(b.Version) >> 29 == 0b001
+// }
 
-func (b *BlockHeader) Cip91() bool{
-	return binary.BigEndian.Uint64(b.Version) >> 4 & 1 == 1
-}
+// func (b *BlockHeader) Cip91() bool{
+// 	return binary.BigEndian.Uint64(b.Version) >> 4 & 1 == 1
+// }
 
-func (b *Block) Cip141()bool{
-	return binary.BigEndian.Uint64(b.Version) >> 1 & 1 == 1
-}
+// func (b *Block) Cip141()bool{
+// 	return binary.BigEndian.Uint64(b.Version) >> 1 & 1 == 1
+// }
 
 func Handle(err error){
 	if err != nil{

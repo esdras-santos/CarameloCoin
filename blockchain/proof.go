@@ -58,7 +58,7 @@ func (pow *ProofOfWork) InitData(nonce int64) []byte{
 	return data
 }
 
-func (pow *ProofOfWork) Run()(int,[]byte){
+func (pow *ProofOfWork) Run()(int){
 	var intHash big.Int
 	var hash [32]byte
 	target := pow.Block.Target()
@@ -78,7 +78,7 @@ func (pow *ProofOfWork) Run()(int,[]byte){
 		}
 	}
 	fmt.Println()
-	return nonce,hash[:]
+	return nonce
 }
 
 func BitsToTarget(bits []byte) *big.Int{

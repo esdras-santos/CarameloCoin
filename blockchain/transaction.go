@@ -22,7 +22,6 @@ type Transaction struct {
 	//ID      []byte
 	Inputs  []TxInput
 	Outputs []TxOutput
-	Testnet bool
 }
 
 func (tx *Transaction) hash() []byte {
@@ -62,7 +61,7 @@ func (tx Transaction) Serialize() []byte {
 	return result
 }
 
-func DeserializeTransaction(data []byte, testnet bool) Transaction {
+func (tx *Transaction) Parse(data []byte) *Transaction {
 	var txn Transaction
 	var lenIn uint
 	utils.ReadVarint([]byte{data[5]},&lenIn)
@@ -101,7 +100,6 @@ func DeserializeTransaction(data []byte, testnet bool) Transaction {
 
 	txn.Locktime = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[startOut:],4)))
 
-	txn.Testnet = testnet
 
 	return txn
 }
