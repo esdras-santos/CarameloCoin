@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"math/big"
 	"strings"
 
 	"gochain/script"
@@ -42,17 +41,17 @@ func (tx *Transaction) Id() []byte{
 func (tx Transaction) Serialize() []byte {
 	result := utils.ToLittleEndian([]byte{byte(tx.Version)},4)
 	
-	lenIns := big.NewInt(int64(len(tx.Inputs)))
+	lenIns := int64(len(tx.Inputs))
 	var lenInsEnc []byte
-	utils.EncodeVarint(*lenIns,&lenInsEnc)
+	utils.EncodeVarint(lenIns,&lenInsEnc)
 	result = append(result, lenInsEnc...)
 	for i := 0; i < len(tx.Inputs);i++{
 		result = append(result, tx.Inputs[i].Serialize()...)
 	}
 
-	lenOuts := big.NewInt(int64(len(tx.Outputs)))
+	lenOuts := int64(len(tx.Outputs))
 	var lenOutsEnc []byte
-	utils.EncodeVarint(*lenOuts,&lenOutsEnc)
+	utils.EncodeVarint(lenOuts,&lenOutsEnc)
 	result = append(result, lenOutsEnc...)
 	for i := 0; i < len(tx.Outputs);i++{
 		result = append(result, tx.Outputs[i].Serialize()...)
@@ -101,14 +100,14 @@ func (tx *Transaction) Parse(data []byte) *Transaction {
 	txn.Locktime = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[startOut:],4)))
 
 
-	return txn
+	return &txn
 }
 
 func (tx Transaction) Fee(testnet bool) uint{
 	var inputSum, outputSum uint
 
 	for _,txin := range tx.Inputs{
-		inputSum += txin.Value(false)
+		inputSum += txin.Value()
 	}
 	for _,txout := range tx.Outputs{
 		outputSum += txout.Amount
@@ -151,17 +150,17 @@ func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTX
 		outputs = append(outputs, TxOutput{uint(acc-amount), w.PublicKey})
 	}
 
-	tx := Transaction{1,4294967295, inputs, outputs,false}
+	tx := Transaction{1,4294967295, inputs, outputs}
 	prevTXs := make(map[string]Transaction)
 	
 	for _,in := range tx.Inputs{
 		prevTX, err := bc.FindTransaction(in.PrevTxID)
 		Handle(err)
-		prevTXs[hex.EncodeToString(prevTX.Id())] = prevTX
+		prevTXs[hex.EncodeToString(prevTX.Id())] = *prevTX
 	}
 	tx.VerifyTransaction(prevTXs)
 	
-	UTXO.Blockchain.SignTransaction(&tx, w.PrivateKey)
+	UTXO.Blockchain.SignTransaction(&tx, *w)
 
 	return &tx
 }
@@ -259,7 +258,7 @@ func (tx *Transaction) TrimmedCopy() Transaction {
 		outputs = append(outputs, TxOutput{out.Amount, out.ScriptPubKey})
 	}
 
-	txCopy := Transaction{1,4294967295, inputs, outputs, false}
+	txCopy := Transaction{1,4294967295, inputs, outputs}
 
 	return txCopy
 }

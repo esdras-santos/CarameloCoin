@@ -53,7 +53,7 @@ func TargetToBits(target *big.Int) []byte{
 }
 
 func (pow *ProofOfWork) InitData(nonce int64) []byte{
-	pow.Block.Nonce = utils.ToHex(nonce)
+	pow.Block.BH.Nonce = utils.ToHex(nonce)
 	data := pow.Block.Serialize()
 	return data
 }
@@ -61,7 +61,7 @@ func (pow *ProofOfWork) InitData(nonce int64) []byte{
 func (pow *ProofOfWork) Run()(int){
 	var intHash big.Int
 	var hash [32]byte
-	target := pow.Block.Target()
+	target := pow.Block.BH.Target()
 
 	nonce := 0
 
@@ -97,6 +97,6 @@ func (pow *ProofOfWork) Validate()bool{
 	hash := sha256.Sum256(data)
 	intHash.SetBytes(hash[:])
 
-	return intHash.Cmp(pow.Block.Target()) == -1
+	return intHash.Cmp(pow.Block.BH.Target()) == -1
 }
 

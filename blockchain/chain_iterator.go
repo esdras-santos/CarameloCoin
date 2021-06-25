@@ -14,11 +14,11 @@ func (iter *BlockChainIterator) Next() *Block {
 		item, err := txn.Get(iter.CurrentHash)
 		Handle(err)
 		encodedBlock, err := item.Value()
- 		block = Deserialize(encodedBlock)
+ 		block.Parse(encodedBlock)
 		return err
 	})
 	Handle(err)
-	iter.CurrentHash = block.PrevHash
+	iter.CurrentHash = block.BH.PrevBlock
 
 	return block
 }

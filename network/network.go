@@ -1,9 +1,9 @@
 package network
 
 import (
-	"bytes"
-	"encoding/gob"
-	"encoding/hex"
+	//"bytes"
+	
+	//"encoding/hex"
 	"fmt"
 	"gochain/blockchain"
 	"gochain/utils"
@@ -82,8 +82,10 @@ func StartServer(nodeID string){
 	defer chain.Database.Close()
 	go CloseDB(chain)
 
-	if nodeAddress != KnownNodes[0]{
-		SendVersion(KnownNodes[0], chain)
+	nc := NodeCommand{}
+	if nodeAddress != KNOWNNODES[0]{
+		nc.Init(KNOWNNODES[0])
+		nc.HandShake()
 	}
 	for{
 		conn, err := ln.Accept()
@@ -95,97 +97,86 @@ func StartServer(nodeID string){
 }
 
 //this function need to be reviewed later
-func CmdToBytes(cmd string) []byte{
-	var bytes [commandLength]byte
-	for i,c := range cmd{
-		bytes[i] = byte(c)
-	}
-	return bytes[:]
-}
+// func CmdToBytes(cmd string) []byte{
+// 	var bytes [commandLength]byte
+// 	for i,c := range cmd{
+// 		bytes[i] = byte(c)
+// 	}
+// 	return bytes[:]
+// }
 
 //this function need to be reveewed later
-func BytesToCmd(bytes []byte) string{
-	var cmd []byte
+// func BytesToCmd(bytes []byte) string{
+// 	var cmd []byte
 
-	for _,b := range bytes{
-		if b != 0x0{
-			cmd = append(cmd,b)
-		}
-	}
+// 	for _,b := range bytes{
+// 		if b != 0x0{
+// 			cmd = append(cmd,b)
+// 		}
+// 	}
 
-	return fmt.Sprintf("%s",cmd)
-}
+// 	return fmt.Sprintf("%s",cmd)
+// }
 
-func RequestBlocks(){
-	for _,node := range KnownNodes{
-		SendGetBlocks(node)
-	}
-}
+// func RequestBlocks(){
+// 	for _,node := range KnownNodes{
+// 		SendGetBlocks(node)
+// 	}
+// }
 
-func ExtractCmd(request []byte) []byte{
-	return request[:commandLength]
-}
+// func ExtractCmd(request []byte) []byte{
+// 	return request[:commandLength]
+// }
 
-func MineTx(chain *blockchain.BlockChain){
-	var txs []*blockchain.Transaction
+// func MineTx(chain *blockchain.BlockChain){
+// 	var txs []*blockchain.Transaction
 
-	for id := range memoryPool{
-		fmt.Printf("tx: %s\n",memoryPool[id].ID)
-		tx := memoryPool[id]
-		if chain.VerifyTransaction(&tx){
-			txs = append(txs, &tx)
-		}
-	}
+// 	for id := range memoryPool{
+// 		fmt.Printf("tx: %s\n",memoryPool[id].ID)
+// 		tx := memoryPool[id]
+// 		if chain.VerifyTransaction(&tx){
+// 			txs = append(txs, &tx)
+// 		}
+// 	}
 
-	if len(txs) == 0{
-		fmt.Println("All Transactions are invalid")
-		return
-	}
+// 	if len(txs) == 0{
+// 		fmt.Println("All Transactions are invalid")
+// 		return
+// 	}
 
-	cbTx := blockchain.CoinbaseTx(minerAddress, "")
-	txs = append(txs, cbTx)
+// 	cbTx := blockchain.CoinbaseTx(minerAddress, "")
+// 	txs = append(txs, cbTx)
 
-	newBlock := chain.MineBlock(txs)
-	UTXOSet := blockchain.UTXOSet{chain}
-	UTXOSet.Reindex()
+// 	newBlock := chain.MineBlock(txs)
+// 	UTXOSet := blockchain.UTXOSet{chain}
+// 	UTXOSet.Reindex()
 
-	fmt.Println("New Block mined")
-	 for _,tx := range txs{
-		 txID := hex.EncodeToString(tx.ID)
-		 delete(memoryPool,txID)
-	 }
+// 	fmt.Println("New Block mined")
+// 	 for _,tx := range txs{
+// 		 txID := hex.EncodeToString(tx.ID)
+// 		 delete(memoryPool,txID)
+// 	 }
 
-	 for _,node := range KnownNodes{
-		 if node != nodeAddress{
-			 SendInv(node, "block", [][]byte{newBlock.Hash})
-		 }
-	 }
+// 	 for _,node := range KnownNodes{
+// 		 if node != nodeAddress{
+// 			 SendInv(node, "block", [][]byte{newBlock.Hash})
+// 		 }
+// 	 }
 
-	 if len(memoryPool) > 0{
-		 MineTx(chain)
-	 }
-}
+// 	 if len(memoryPool) > 0{
+// 		 MineTx(chain)
+// 	 }
+// }
 
-func GobEncode(data interface{}) []byte{
-	var buff bytes.Buffer
 
-	enc := gob.NewEncoder(&buff)
-	err := enc.Encode(data)
-	if err != nil{
-		log.Panic(err)
-	}
-
-	return buff.Bytes()
-}
-
-func NodeIsKnown(addr string) bool{
-	for _,node := range KnownNodes{
-		if node == addr{
-			return true
-		}
-	}
-	return false
-}
+// func NodeIsKnown(addr string) bool{
+// 	for _,node := range KnownNodes{
+// 		if node == addr{
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
 func CloseDB(chain *blockchain.BlockChain){
 	d := death.NewDeath(syscall.SIGINT, syscall.SIGTERM,os.Interrupt)

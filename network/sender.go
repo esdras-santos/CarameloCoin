@@ -3,8 +3,8 @@ package network
 import (
 	"bytes"
 	"fmt"
-	"gochain/blockchain"
-	"gochain/utils"
+	//"gochain/blockchain"
+	//"gochain/utils"
 	"io"
 	"log"
 	"net"
@@ -17,38 +17,38 @@ type Message interface{
 	Serialize() []byte
 }
 
-func SendAddr(address string) {
-	nodes := Addr{KnownNodes}
-	nodes.AddrList = append(nodes.AddrList, nodeAddress)
-	payload := GobEncode(nodes)
-	request := append(CmdToBytes("addr"), payload...)
+// func SendAddr(address string) {
+// 	nodes := Addr{KNOWNNODES}
+// 	nodes.AddrList = append(nodes.AddrList, nodeAddress)
+// 	payload := GobEncode(nodes)
+// 	request := append(CmdToBytes("addr"), payload...)
 
-	SendData(address, request)
-}
+// 	SendData(address, request)
+// }
 
-func SendBlock(addr string, b *blockchain.Block) {
-	data := Block{nodeAddress, b.Serialize()}
-	payload := GobEncode(data)
-	request := append(CmdToBytes("block"), payload...)
+// func SendBlock(addr string, b *blockchain.Block) {
+// 	data := Block{nodeAddress, b.Serialize()}
+// 	payload := GobEncode(data)
+// 	request := append(CmdToBytes("block"), payload...)
 
-	SendData(addr, request)
-}
+// 	SendData(addr, request)
+// }
 
-func SendInv(address, kind string, items [][]byte) {
-	inventory := Inv{nodeAddress, kind, items}
-	payload := GobEncode(inventory)
-	request := append(CmdToBytes("inv"), payload...)
+// func SendInv(address, kind string, items [][]byte) {
+// 	inventory := Inv{nodeAddress, kind, items}
+// 	payload := GobEncode(inventory)
+// 	request := append(CmdToBytes("inv"), payload...)
 
-	SendData(address, request)
-}
+// 	SendData(address, request)
+// }
 
-func SendTx(addr string, tnx *blockchain.Transaction) {
-	data := Tx{nodeAddress, tnx.Serialize()}
-	payload := GobEncode(data)
-	request := append(CmdToBytes("tx"), payload...)
+// func SendTx(addr string, tnx *blockchain.Transaction) {
+// 	data := Tx{nodeAddress, tnx.Serialize()}
+// 	payload := GobEncode(data)
+// 	request := append(CmdToBytes("tx"), payload...)
 
-	SendData(addr, request)
-}
+// 	SendData(addr, request)
+// }
 
 // func SendVersion(addr string, chain *blockchain.BlockChain) {
 // 	bestHeight := chain.GetBestHeight()
@@ -102,13 +102,13 @@ func SendData(hostAddr string, message Message) {
 		fmt.Printf("%s is not available\n", host)
 		var updatedNodes []string
 
-		for _, node := range KnownNodes {
+		for _, node := range KNOWNNODES {
 			if node != host {
 				updatedNodes = append(updatedNodes, node)
 			}
 		}
 
-		KnownNodes = updatedNodes
+		KNOWNNODES = updatedNodes
 
 		return
 	}

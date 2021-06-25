@@ -58,8 +58,8 @@ func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
 }
 
 //create genesis block
-func Genesis(coinbase *Transaction, prevHash []byte) *Block{
-	return CreateBlock([]*Transaction{coinbase},prevHash,0)
+func Genesis(coinbase *Transaction) *Block{
+	return CreateBlock([]*Transaction{coinbase},nil,0)
 }
 
 func (b *Block) Parse(s []byte) {

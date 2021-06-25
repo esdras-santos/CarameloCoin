@@ -3,7 +3,6 @@ package blockchain
 import (
 	"bytes"
 	"encoding/binary"
-	"gochain/script"
 	"gochain/wallet"
 	
 	"gochain/utils"
@@ -20,11 +19,7 @@ type TxInput struct {
 func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
 	in.PrevTxID = prevTx
 	in.Out = uint(binary.BigEndian.Uint64(prevIndex)) 
-	if scriptSig == nil{
-		in.ScriptSig = Script()
-	}else{
-		in.ScriptSig = scriptSig
-	}
+	in.ScriptSig = scriptSig
 	in.Sequence = sequence
 }
 func (in TxInput) Serialize() []byte{
@@ -35,16 +30,18 @@ func (in TxInput) Serialize() []byte{
 	
 	return result
 }
-func (in TxInput) FetchTx(testnet bool) *Transaction{
-	fet := TxFetcher{}
-	return fet.Fetch(in.PrevTxID,testnet,false)
-}
-func (in TxInput) Value(testnet bool) uint{
-	tx := in.FetchTx(false)
+
+// here we need to use the GetHeader command
+func (in TxInput) Value() uint{
+	chain := BlockChain{}
+	tx,err := chain.FindTransaction(in.PrevTxID)
+	Handle(err)
 	return tx.Outputs[in.Out].Amount
 }
 func (in TxInput) ScriptpubKey(testnet bool) []byte{
-	tx := in.FetchTx(testnet)
+	chain := BlockChain{}
+	tx,err := chain.FindTransaction(in.PrevTxID)
+	Handle(err)
 	return tx.Outputs[in.Out].ScriptPubKey
 }
 
@@ -53,12 +50,10 @@ func DeserializeInput(data []byte) (TxInput,int){
 	var lensc uint
 	txin.PrevTxID = utils.ToLittleEndian(data[:33],32)
 	txin.Out = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[33:37],4)))
-	sc := script.Script{}
-	txin.ScriptSig,lensc = sc.ScriptParser(data[37:])
+	txin.ScriptSig = data[37:]
 	txin.Sequence = utils.ToLittleEndian(data[lensc+33 : lensc+37],4)
 	return txin,len(data)
 }
-
 
 type TxOutput struct{
 	Amount uint
@@ -73,13 +68,13 @@ func (out TxOutput) Serialize()[]byte{
 	return result
 }
 
-func DeserializeOutput(data []byte) (TxOutput,uint){
+func DeserializeOutput(data []byte) (TxOutput,int){
 	var txout TxOutput
-	var lensc uint
+	
 	txout.Amount = uint(binary.BigEndian.Uint64(data[:8]))
-	sc := script.Script{}
-	txout.ScriptPubKey,lensc = sc.ScriptParser(data[8:])
-	return txout,lensc+8
+	
+	txout.ScriptPubKey = data[8:]
+	return txout, len(data)
 }
 
 func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
@@ -93,6 +88,3 @@ func (out *TxOutput) IsLockedWithKey(scriptPubKey []byte) bool{
 
 
 
-func Script() []byte{
-	return nil
-}

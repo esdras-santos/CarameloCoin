@@ -278,7 +278,7 @@ func (bc *BlockChain) FindTransaction(ID []byte) (*Transaction,error){
 		block := iter.Next()
 		for _,tx := range block.Transactions{
 			if bytes.Compare(tx.Id(),ID) == 0{
-				return &tx,nil
+				return tx,nil
 			}
 		}
 
