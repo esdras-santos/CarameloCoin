@@ -88,7 +88,7 @@ func OP_EQUALVERIFY(stack *Stack) bool {
 	if bytes.Equal(hash1,hash2){
 		return true
 	}else{
-		log.Panic("diferent hashs")
+		log.Panic("different hashs")
 		return false
 	}
 }
