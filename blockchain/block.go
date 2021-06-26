@@ -66,7 +66,7 @@ func (b *Block) Parse(s []byte) {
 	b.Height = int64(binary.LittleEndian.Uint64(s[:8]))
 	b.BH = b.BH.Parse(s[8:88])
 	txnlen := int64(binary.LittleEndian.Uint64(s[88:96]))
-	var lenIn uint
+	var lenIn int
 	utils.ReadVarint(s[96:],&lenIn)
 	var start int
 	if lenIn <= 253{

@@ -33,9 +33,9 @@ func (hm HeadersMessage) Serialize() []byte{
 }
 
 func (hm *HeadersMessage) Parse(data []byte){
-	var numberBlocks uint 
+	var numberBlocks int 
 	utils.ReadVarint(data,&numberBlocks)
-	var i uint
+	var i int
 	var startIn int
 	if numberBlocks <= 253{
 		startIn = 1

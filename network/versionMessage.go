@@ -67,9 +67,9 @@ func (vm *VersionMessage) Parse(data []byte) {
 	vm.SenderIp = utils.ToLittleEndian(data[66:70],4)
 	vm.SenderPort = utils.ToLittleEndian(data[70:72],2)
 	vm.Nonce = data[72:80]
-	var len uint
+	var len int
 	utils.ReadVarint(data[80:],&len)
-	var startIn uint
+	var startIn int
 	if len <= 253{
 		startIn = 81
 	}else if len <= 254{

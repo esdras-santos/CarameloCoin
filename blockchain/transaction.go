@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -16,8 +15,8 @@ import (
 )
 
 type Transaction struct {
-	Version uint
-	Locktime uint
+	Version []byte
+	Locktime []byte
 	//ID      []byte
 	Inputs  []TxInput
 	Outputs []TxOutput
@@ -39,7 +38,7 @@ func (tx *Transaction) Id() []byte{
 }
 
 func (tx Transaction) Serialize() []byte {
-	result := utils.ToLittleEndian([]byte{byte(tx.Version)},4)
+	result := utils.ToLittleEndian(tx.Version,4)
 	
 	lenIns := int64(len(tx.Inputs))
 	var lenInsEnc []byte
@@ -56,7 +55,7 @@ func (tx Transaction) Serialize() []byte {
 	for i := 0; i < len(tx.Outputs);i++{
 		result = append(result, tx.Outputs[i].Serialize()...)
 	}
-	result = append(result, utils.ToLittleEndian([]byte{byte(tx.Locktime)},4)...)
+	result = append(result, utils.ToLittleEndian(tx.Locktime,4)...)
 	return result
 }
 
@@ -74,7 +73,7 @@ func (tx *Transaction) Parse(data []byte) *Transaction {
 		startIn = 8
 	}
 	
-	txn.Version = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[:5],4)))
+	txn.Version = utils.ToLittleEndian(data[:5],4)
 	
 	for i := 0;i<int(lenIn);i++{
 		data, len := DeserializeInput(data[startIn:])
@@ -98,7 +97,7 @@ func (tx *Transaction) Parse(data []byte) *Transaction {
 		startOut += int(len)
 	}
 
-	txn.Locktime = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[startOut:],4)))
+	txn.Locktime = utils.ToLittleEndian(data[startOut:],4)
 
 
 	return &txn
@@ -120,9 +119,12 @@ func (tx Transaction) Fee(testnet bool) uint{
 	return fee
 }
 
-func CoinbaseTx(w *wallet.Wallet){
+func CoinbaseTx(w *wallet.Wallet) *Transaction{
+	in := TxInput{[]byte{0x00},0xffffffff,nil,[]byte{0xff,0xff,0xff,0xff}}
+	out := TxOutput{1000,script.P2pkhScript(w)}
 	//correct that
-	NewTransaction(w,script.P2pkhScript(w),1000,nil)
+	tx := Transaction{[]byte{0x00000001},[]byte{0x00000000},[]TxInput{in},[]TxOutput{out}}
+	return &tx
 }
 
 func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTXOSet) *Transaction {
@@ -156,7 +158,7 @@ func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTX
 		outputs = append(outputs, TxOutput{uint(acc-amount), w.PublicKey})
 	}
 
-	tx := Transaction{1,4294967295, inputs, outputs}
+	tx := Transaction{[]byte{0x00000001},utils.ToHex(4294967295), inputs, outputs}
 	prevTXs := make(map[string]Transaction)
 	
 	for _,in := range tx.Inputs{
@@ -255,7 +257,7 @@ func (tx *Transaction) TrimmedCopy() Transaction {
 		outputs = append(outputs, TxOutput{out.Amount, out.ScriptPubKey})
 	}
 
-	txCopy := Transaction{1,4294967295, inputs, outputs}
+	txCopy := Transaction{[]byte{0x00000001},utils.ToHex(4294967295), inputs, outputs}
 
 	return txCopy
 }

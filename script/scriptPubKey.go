@@ -1,6 +1,8 @@
 package script
 
-func P2pkhScript(w wallet.Wallet) []byte{
+import "gochain/wallet"
+
+func P2pkhScript(w *wallet.Wallet) []byte {
 	script := []byte{0x76}
 	script = append(script, 0xa9)
 	hash := wallet.PublicKeyHash(w.PublicKey)

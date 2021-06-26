@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"gochain/utils"
 	"log"
-	"math/big"
 
 )
 
@@ -82,8 +81,8 @@ func (scr Script) Add(other Script) Script {
 }
 
 //if is between 0x01 and 0x4b this is an element not an opcode
-func (scr *Script) ScriptParser(s []byte) ([][]byte, uint) {
-	var length uint
+func (scr *Script) ScriptParser(s []byte) ([][]byte, int) {
+	var length int
 	utils.ReadVarint(s,&length)
 	Cmd := [][]byte{}
 	count := 0
@@ -145,9 +144,9 @@ func (src *Script) Serialize() []byte{
 			result = append(result, Cmd...)
 		}
 	}
-	total := big.NewInt(int64(len(result)))
+	total := int64(len(result))
 	buf := []byte{}
-	utils.EncodeVarint(*total,&buf)
+	utils.EncodeVarint(total,&buf)
 	result = append(buf,result...)
 	return result
 }
