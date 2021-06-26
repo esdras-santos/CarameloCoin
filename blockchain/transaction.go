@@ -62,7 +62,8 @@ func (tx Transaction) Serialize() []byte {
 
 func (tx *Transaction) Parse(data []byte) *Transaction {
 	var txn Transaction
-	var lenIn uint
+	var out TxOutput
+	var lenIn int
 	utils.ReadVarint([]byte{data[5]},&lenIn)
 	var startIn int
 	if lenIn <= 253{
@@ -81,7 +82,7 @@ func (tx *Transaction) Parse(data []byte) *Transaction {
 		startIn += len
 	}
 
-	var lenOut uint
+	var lenOut int
 	utils.ReadVarint([]byte{data[startIn+1]},&lenOut)
 	var startOut int
 	if lenOut <= 253{
@@ -92,7 +93,7 @@ func (tx *Transaction) Parse(data []byte) *Transaction {
 		startOut = startIn + 4
 	}
 	for i := 0;i<int(lenOut);i++{
-		data,len := DeserializeOutput(data[startOut:])
+		data,len := out.Parse(data[startOut:])
 		txn.Outputs = append(txn.Outputs, data)
 		startOut += int(len)
 	}
@@ -119,12 +120,17 @@ func (tx Transaction) Fee(testnet bool) uint{
 	return fee
 }
 
-
+func CoinbaseTx(w *wallet.Wallet){
+	//correct that
+	NewTransaction(w,script.P2pkhScript(w),1000,nil)
+}
 
 func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTXOSet) *Transaction {
 	var inputs []TxInput
 	var outputs []TxOutput
 	bc := BlockChain{}
+
+
 
 	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
 	acc, validOutputs := UTXO.FindSpendableOutputs(pubKeyHash, amount)
@@ -235,16 +241,7 @@ func (tx *Transaction) VerifyTransaction(UTXOs map[string]Transaction) bool {
 	return true
 }
 
-func P2pkhScript(w wallet.Wallet) []byte{
-	script := []byte{0x76}
-	script = append(script, 0xa9)
-	hash := wallet.PublicKeyHash(w.PublicKey)
-	script = append(script, []byte{byte(len(hash))}...)
-	script = append(script, hash...)
-	script = append(script, 0x88)
-	script = append(script, 0xac)
-	return script
-}
+
 
 func (tx *Transaction) TrimmedCopy() Transaction {
 	var inputs []TxInput

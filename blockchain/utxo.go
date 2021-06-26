@@ -30,7 +30,7 @@ func (u UTXOSet) Reindex() {
 				return err
 			}
 			key = append(utxoPrefix, key...)
-			err = txn.Set(key, outs.Serialize())
+			err = txn.Set(key, SerializeOutputs(outs))
 			Handle(err)
 		}
 		return nil
@@ -45,39 +45,39 @@ func (u *UTXOSet) Update(block *Block) {
 		for _, tx := range block.Transactions {
 			if tx.IsCoinbase() == false {
 				for _, in := range tx.Inputs {
-					updatedOuts := TxOutputs{}
-					inID := append(utxoPrefix, in.ID...)
+					updatedOuts := []TxOutput{}
+					inID := append(utxoPrefix, in.PrevTxID...)
 					item, err := txn.Get(inID)
 					Handle(err)
 					v, err := item.Value()
 					Handle(err)
 
-					outs := DeserializeOutputs(v)
+					outs := ParseOutputs(v)
 
-					for outIdx, out := range outs.Outputs {
-						if outIdx != in.Out {
-							updatedOuts.Outputs = append(updatedOuts.Outputs, out)
+					for outIdx, out := range outs {
+						if outIdx != int(in.Out) {
+							updatedOuts = append(updatedOuts, out)
 						}
 					}
 
-					if len(updatedOuts.Outputs) == 0 {
+					if len(updatedOuts) == 0 {
 						if err := txn.Delete(inID); err != nil {
 							log.Panic(err)
 						}
 					} else {
-						if err := txn.Set(inID, updatedOuts.Serialize()); err != nil {
+						if err := txn.Set(inID, SerializeOutputs(updatedOuts)); err != nil {
 							log.Panic(err)
 						}
 					}
 				}
 			}
-			newOutputs := TxOutputs{}
+			newOutputs := []TxOutput{}
 			for _, out := range tx.Outputs {
-				newOutputs.Outputs = append(newOutputs.Outputs, out)
+				newOutputs = append(newOutputs, out)
 			}
 
-			txID := append(utxoPrefix, tx.ID...)
-			if err := txn.Set(txID, newOutputs.Serialize()); err != nil {
+			txID := append(utxoPrefix, tx.Id()...)
+			if err := txn.Set(txID, SerializeOutputs(newOutputs)); err != nil {
 				log.Panic(err)
 			}
 		}
@@ -102,8 +102,8 @@ func (u UTXOSet) FindUnspentTransactions(pubKeyHash []byte) []TxOutput {
 			item := it.Item()
 			v, err := item.Value()
 			Handle(err)
-			outs := DeserializeOutputs(v)
-			for _, out := range outs.Outputs {
+			outs := ParseOutputs(v)
+			for _, out := range outs {
 				if out.IsLockedWithKey(pubKeyHash) {
 					UTXOs = append(UTXOs, out)
 				}
@@ -133,11 +133,11 @@ func (u UTXOSet) FindSpendableOutputs(pubKeyHash []byte, amount int) (int, map[s
 			Handle(err)
 			k = bytes.TrimPrefix(k,utxoPrefix)
 			txID := hex.EncodeToString(k)
-			outs := DeserializeOutputs(v)
+			outs := ParseOutputs(v)
 			
-			for outIdx, out := range outs.Outputs{
+			for outIdx, out := range outs{
 				if out.IsLockedWithKey(pubKeyHash) && accumulated < amount{
-					accumulated += out.Value
+					accumulated += int(out.Amount)
 					unspentOuts[txID] = append(unspentOuts[txID],outIdx)
 				}
 			}

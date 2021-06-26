@@ -168,7 +168,7 @@ func DBexists(path string) bool {
 	return true
 }
 
-func InitBlockChain(address,nodeId string) *BlockChain {
+func InitBlockChain(w *wallet.Wallet,nodeId string) *BlockChain {
 	path := fmt.Sprintf(dbPath,nodeId)
 
 	if DBexists(path) {

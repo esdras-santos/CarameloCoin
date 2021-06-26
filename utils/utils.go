@@ -21,19 +21,19 @@ func ToLittleEndian(bytes []byte, length int) []byte {
 	return le
 }
 
-func ReadVarint(s []byte, buf *uint){
+func ReadVarint(s []byte, buf *int){
 	i := s[0]
 	if i == 0xfd{
 		a := binary.LittleEndian.Uint16(s[1:3])
-		*buf = uint(a)
+		*buf = int(a)
 	}else if i == 0xfe{
 		a := binary.LittleEndian.Uint32(s[1:5])
-		*buf = uint(a)
+		*buf = int(a)
 	}else if i == 0xff{
 		a := binary.LittleEndian.Uint64(s[1:9])
-		*buf = uint(a)
+		*buf = int(a)
 	}else{
-		*buf = uint(i)
+		*buf = int(i)
 	}
 }
 

@@ -38,7 +38,9 @@ func (in TxInput) Value() uint{
 	Handle(err)
 	return tx.Outputs[in.Out].Amount
 }
-func (in TxInput) ScriptpubKey(testnet bool) []byte{
+
+
+func (in TxInput) ScriptpubKey() []byte{
 	chain := BlockChain{}
 	tx,err := chain.FindTransaction(in.PrevTxID)
 	Handle(err)
@@ -68,13 +70,56 @@ func (out TxOutput) Serialize()[]byte{
 	return result
 }
 
-func DeserializeOutput(data []byte) (TxOutput,int){
+func SerializeOutputs(outs []TxOutput) []byte{
+	var result []byte
+	for _,i := range outs{
+		utils.EncodeVarint(int64(len(i.Serialize())),&result)
+		result = append(result, i.Serialize()...)
+	}
+	result = append(utils.ToHex(int64(len(outs))),result...)
+	return result
+}
+
+func (out *TxOutput) Parse(data []byte) (TxOutput,int){
 	var txout TxOutput
 	
 	txout.Amount = uint(binary.BigEndian.Uint64(data[:8]))
 	
 	txout.ScriptPubKey = data[8:]
 	return txout, len(data)
+}
+
+func ParseOutputs(data []byte) ([]TxOutput){
+	var start int
+	var lenOut int
+	var out TxOutput
+	var outs []TxOutput
+	utils.ReadVarint(data[1:],&lenOut)
+	if lenOut <= 253{
+		start = 2
+	}else if lenOut <= 254{
+		start = 3
+	}else if lenOut <= 255{
+		start = 4
+	}
+
+	end := start + lenOut
+	lenOuts := binary.BigEndian.Uint64([]byte{data[0]})
+
+	for i := 0;i<int(lenOuts);i++{
+		o,_ := out.Parse(data[start:end])
+		outs = append(outs, o)
+		utils.ReadVarint(data[end+1:],&lenOut)
+		if lenOut <= 253{
+			start = end+2
+		}else if lenOut <= 254{
+			start = end+3
+		}else if lenOut <= 255{
+			start = end+4
+		}
+		end = start + lenOut
+	}
+	return outs
 }
 
 func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
