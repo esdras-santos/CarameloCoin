@@ -79,6 +79,29 @@ func (chain *BlockChain) GetBlock(blockHash []byte) (Block, error){
 	return block, nil
 }
 
+
+//return the block headers 
+func (chain *BlockChain) GetBlockHeaders(startBlock, endBlock []byte) []BlockHeader{
+	var blockHeaders []BlockHeader
+	if bytes.Equal(startBlock,endBlock){
+		b,err := chain.GetBlock(endBlock)
+		Handle(err)
+		blockHeaders = append(blockHeaders, b.BH)
+		return blockHeaders
+	}
+	iter := &BlockChainIterator{endBlock,chain.Database}
+
+	for{
+		block := *iter.Next()
+		if bytes.Equal(block.BH.Hash(),startBlock){
+			blockHeaders = append(blockHeaders, block.BH)
+			break
+		}
+		blockHeaders = append(blockHeaders, block.BH)
+	}
+	return blockHeaders
+}
+
 func (chain *BlockChain) GetBlockHashes() [][]byte{
 	var blocks [][]byte
 

@@ -139,19 +139,26 @@ func HandleAddr(request []byte) {
 //get all the hashs in the DB from the startBlock to the endBlock
 //put all the blocks as argument in HeadersMessage struct
 //send the HeadersMessage
-func HandleGetHeaders(request []byte, chain *blockchain.BlockChain) {
+func HandleGetHeaders(senderIp string,request []byte, chain *blockchain.BlockChain) {
 	var payload GetHeadersMessage
 
 	payload.Parse(request[COMMANDLENGTH+4:])
 	
-	
-
-
+	blockHeaders := chain.GetBlockHeaders(payload.StartingBlock,payload.EndingBlock)
+	hm := HeadersMessage{}
+	hm.Init(blockHeaders)
+	SendData(senderIp,hm)
 }
 
 //response for the getheaders command
 //receive the headers and add to the database 
-func HandleHeaders(request []byte, chain *blockchain.BlockChain) {}
+func HandleHeaders(request []byte, chain *blockchain.BlockChain) {
+	var payload HeadersMessage
+
+	payload.Parse(request[COMMANDLENGTH+4:])
+
+	
+}
 
 func HandleVersion(request []byte, chain *blockchain.BlockChain) {
 	var payload VersionMessage
@@ -246,7 +253,7 @@ func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
 	case "getheaders":
 		if VERACKRECEIVED[connectedNode]{
 			//this need return all the block headers asked with a headers command
-			HandleGetHeaders(req, chain)
+			HandleGetHeaders(conn.RemoteAddr().String(),req, chain)
 		}else{
 			log.Panic("you don't made the handshake")
 		}

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math/big"
 	"strings"
 
 	"gochain/script"
@@ -121,7 +122,11 @@ func (tx Transaction) Fee(testnet bool) uint{
 
 func CoinbaseTx(w *wallet.Wallet) *Transaction{
 	in := TxInput{[]byte{0x00},0xffffffff,nil,[]byte{0xff,0xff,0xff,0xff}}
-	out := TxOutput{1000,script.P2pkhScript(w)}
+	amount,err := rand.Int(rand.Reader,big.NewInt(50000))
+	Handle(err)
+	
+	//the coinbase transaction will pay a random amount between 1 and 50k to the miner. just for the meme LOL
+	out := TxOutput{uint(amount.Uint64()+1),script.P2pkhScript(w)}
 	//correct that
 	tx := Transaction{[]byte{0x00000001},[]byte{0x00000000},[]TxInput{in},[]TxOutput{out}}
 	return &tx
