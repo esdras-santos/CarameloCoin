@@ -125,7 +125,7 @@ func CoinbaseTx(w *wallet.Wallet) *Transaction{
 	amount,err := rand.Int(rand.Reader,big.NewInt(50000))
 	Handle(err)
 	
-	//the coinbase transaction will pay a random amount between 1 and 50k to the miner. just for the meme LOL
+	//the coinbase transaction will pay a random amount between 1 and 50k to the miner. just for the meme LOL KEKW
 	out := TxOutput{uint(amount.Uint64()+1),script.P2pkhScript(w)}
 	//correct that
 	tx := Transaction{[]byte{0x00000001},[]byte{0x00000000},[]TxInput{in},[]TxOutput{out}}
