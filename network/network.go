@@ -44,10 +44,10 @@ type Addr struct{
 	AddrList []string
 }
 
-type Block struct{
-	AddrFrom string
-	Block []byte
-}
+// type Block struct{
+// 	AddrFrom string
+// 	Block []byte
+// }
 
 type GetBlocks struct{
 	AddrFrom string

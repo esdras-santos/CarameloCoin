@@ -4,8 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"gochain/blockchain"
-	"gochain/wallet"
 	"gochain/network"
+	"gochain/script"
+	"gochain/wallet"
 	"log"
 	"os"
 	"runtime"
@@ -122,7 +123,7 @@ func (cli *CommandLine) getBalance(address,nodeID string){
 	}
 	fmt.Printf("Balance of %s: %d \n",address,balance)
 }
-func (cli *CommandLine) send(from, to string, amount int, nodeID string,mineNow bool){
+func (cli *CommandLine) send(from, to string, amount int, nodeID string, mineNow bool){
 	if !wallet.ValidateAddress(to){
 		log.Panic("Address is not Valid")
 	}
@@ -137,16 +138,18 @@ func (cli *CommandLine) send(from, to string, amount int, nodeID string,mineNow 
 	if err != nil{
 		log.Panic(err)
 	}
-	wallet := wallets.GetWallet(from)
+	wFrom := wallets.GetWallet(from)
 
-	tx := blockchain.NewTransaction(&wallet, to, amount, &UTXOSet)
+
+
+	tx := blockchain.NewTransaction(&wFrom, to, amount, &UTXOSet)
 	if mineNow{
-		cbTx := blockchain.CoinbaseTx(from, "")
-		txs := []*blockchain.Transaction{cbTx,tx}
+		cbTx := blockchain.CoinbaseTx(&wFrom)
+		txs := []*blockchain.Transaction{cbTx, tx}
 		block := chain.MineBlock(txs)
 		UTXOSet.Update(block)
 	}else{
-		network.SendTx(network.KnownNodes[0], tx)
+		network.SendTx(network.KNOWNNODES[0], tx)
 		fmt.Println("send tx")
 	}
 

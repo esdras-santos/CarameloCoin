@@ -19,7 +19,7 @@ type BlockHeader struct{
 }
 
 type Block struct{
-	Height int64
+	Height []byte
 	BH BlockHeader
 	Transactions []*Transaction
 }
@@ -46,7 +46,7 @@ func (b *Block) HashTransactions() []byte{
 }
 
 func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
-	block := Block{Height: height,Transactions: txs}
+	block := Block{Height: utils.ToHex(height),Transactions: txs}
 	//currentTarget() must return the current target of the network and check if the difficult has changed
 	blockheader := &BlockHeader{[]byte{0x00000001},prevHash,block.HashTransactions(),utils.ToHex(time.Now().Unix()),TargetToBits(CurrentTarget()),[]byte{0x00000000}}
 	block.BH = *blockheader
@@ -63,7 +63,7 @@ func Genesis(coinbase *Transaction) *Block{
 }
 
 func (b *Block) Parse(s []byte) {
-	b.Height = int64(binary.LittleEndian.Uint64(s[:8]))
+	b.Height = utils.ToHex(int64(binary.LittleEndian.Uint64(s[:8])))
 	b.BH = b.BH.Parse(s[8:88])
 	txnlen := int64(binary.LittleEndian.Uint64(s[88:96]))
 	var lenIn int
@@ -94,7 +94,7 @@ func (b *Block) Parse(s []byte) {
 }
 
 func (b *Block) Serialize() []byte{
-	result := utils.ToHex(b.Height)
+	result := b.Height
 	result = append(result, b.BH.Serialize()...)
 	result = append(result,  utils.ToHex(int64(len(b.Transactions)))...)
 	for _,tx := range b.Transactions{

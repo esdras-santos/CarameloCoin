@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	"gochain/blockchain"
 )
 
 
@@ -23,9 +24,15 @@ func (nm *NodeCommand) HandShake(){
 	SendData(nm.hostAddress,message)
 }
 
+func (nm *NodeCommand) GetBlock(height int64){
+
+}
+
+func (nm *NodeCommand) SendTransaction(nodeAddress string, tx blockchain.Transaction){}
+
 //you can split the return of bestHeight function in different nodes with goroutines and pass that in numhash parameter
 func (nm *NodeCommand) GetHeaders(numhash, sb, eb []byte){
 	var message GetHeadersMessage
-	message.Init([]byte{0x00,0x00,0x00,0x01},numhash,sb,eb)
+	message.Init([]byte(nm.hostAddress),[]byte{0x00,0x00,0x00,0x01},numhash,sb,eb)
 	SendData(nm.hostAddress,message)
 }

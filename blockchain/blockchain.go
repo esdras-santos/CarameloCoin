@@ -2,7 +2,8 @@ package blockchain
 
 import (
 	"bytes"
-	
+
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -47,7 +48,7 @@ func (chain *BlockChain) AddBlock(block *Block){
 
 		lastBlock.Parse(lastBlockData)
 
-		if block.Height > lastBlock.Height{
+		if binary.BigEndian.Uint64(block.Height) > binary.BigEndian.Uint64(lastBlock.Height){
 			err = txn.Set([]byte("lh"), block.BH.Hash())
 			Handle(err)
 			chain.LastHash = block.BH.Hash()
@@ -137,7 +138,7 @@ func (chain *BlockChain) GetBestHeight() int64{
 		return nil
 	})
 	Handle(err)
-	return lastBlock.Height
+	return int64(binary.BigEndian.Uint64(lastBlock.Height))
 }
 
 func (chain *BlockChain) MineBlock(transactions []*Transaction) *Block{
@@ -162,7 +163,7 @@ func (chain *BlockChain) MineBlock(transactions []*Transaction) *Block{
 
 		lastBlock.Parse(lastBlockData)
 
-		lastHeight = lastBlock.Height
+		lastHeight = int64(binary.BigEndian.Uint64(lastBlock.Height))
 
 		return err
 	})
@@ -312,7 +313,7 @@ func (bc *BlockChain) FindTransaction(ID []byte) (*Transaction,error){
 	return &Transaction{},errors.New("Transaction does not exist")
 }
 
-func (bc *BlockChain) SignTransaction(tx *Transaction,wallet wallet.Wallet){
+func (bc *BlockChain) SignTransaction(tx *Transaction,wallet *wallet.Wallet){
 	prevTXs := make(map[string]Transaction)
 	
 	for _,in := range tx.Inputs{

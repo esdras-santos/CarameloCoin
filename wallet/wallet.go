@@ -32,7 +32,11 @@ func (w Wallet) Address() []byte{
 	return address
 }
 
-
+func AddressToPKH(address string) []byte{
+	pubKeyHash := Base58Decode([]byte(address))
+	pubKeyHash = pubKeyHash[1:len(pubKeyHash)-checksumLength]
+	return pubKeyHash
+}
 
 func ValidateAddress(address string) bool{
 	pubKeyHash := Base58Decode([]byte(address))

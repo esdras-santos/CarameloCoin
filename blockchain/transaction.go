@@ -124,27 +124,32 @@ func CoinbaseTx(w *wallet.Wallet) *Transaction{
 	in := TxInput{[]byte{0x00},0xffffffff,nil,[]byte{0xff,0xff,0xff,0xff}}
 	amount,err := rand.Int(rand.Reader,big.NewInt(50000))
 	Handle(err)
+	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
 	
 	//the coinbase transaction will pay a random amount between 1 and 50k to the miner. just for the meme LOL KEKW
-	out := TxOutput{uint(amount.Uint64()+1),script.P2pkhScript(w)}
+	out := TxOutput{uint(amount.Uint64()+1),script.P2pkhScript(pubKeyHash)}
 	//correct that
 	tx := Transaction{[]byte{0x00000001},[]byte{0x00000000},[]TxInput{in},[]TxOutput{out}}
 	return &tx
 }
 
-func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTXOSet) *Transaction {
+func NewTransaction(from *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Transaction {
 	var inputs []TxInput
 	var outputs []TxOutput
 	bc := BlockChain{}
 
 
 
-	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
-	acc, validOutputs := UTXO.FindSpendableOutputs(pubKeyHash, amount)
+	pubKeyHashFrom := wallet.PublicKeyHash(from.PublicKey)
+	pubKeyHashTo := wallet.AddressToPKH(to)
+	acc, validOutputs := UTXO.FindSpendableOutputs(pubKeyHashFrom, amount)
 
 	if acc < amount {
 		log.Panic("Error: not enough funds")
 	}
+
+	p2pkhFrom := script.P2pkhScript(pubKeyHashFrom)
+	p2pkhTo := script.P2pkhScript(pubKeyHashTo)
 
 	// out and txId must be in little endian 32 bytes and 4 bytes respectivily
 	for txid, outs := range validOutputs {
@@ -152,16 +157,14 @@ func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTX
 		Handle(err)
 
 		for _, out := range outs {
-			input := TxInput{txID, uint(out), nil, w.PublicKey}
+			input := TxInput{txID, uint(out), nil, []byte{0xff,0xff,0xff,0xff}}
 			inputs = append(inputs, input)
 		}
 	}
 
-	outputs = append(outputs, TxOutput{uint(amount), scriptPubKey})
-
-	if acc > amount {
-		outputs = append(outputs, TxOutput{uint(acc-amount), w.PublicKey})
-	}
+	outputs = append(outputs, TxOutput{uint(amount), p2pkhTo})
+	outputs = append(outputs, TxOutput{uint(acc-amount), p2pkhFrom})
+	
 
 	tx := Transaction{[]byte{0x00000001},utils.ToHex(4294967295), inputs, outputs}
 	prevTXs := make(map[string]Transaction)
@@ -173,7 +176,7 @@ func NewTransaction(w *wallet.Wallet, scriptPubKey []byte, amount int, UTXO *UTX
 	}
 	tx.VerifyTransaction(prevTXs)
 	
-	UTXO.Blockchain.SignTransaction(&tx, *w)
+	UTXO.Blockchain.SignTransaction(&tx, from)
 
 	return &tx
 }
@@ -189,7 +192,7 @@ func (tx *Transaction) IsCoinbase() bool {
 	return false
 }
 
-func (tx *Transaction) Sign(wallet wallet.Wallet, prevTxs map[string]Transaction) {
+func (tx *Transaction) Sign(wallet *wallet.Wallet, prevTxs map[string]Transaction) {
 	if tx.IsCoinbase() {
 		return
 	}

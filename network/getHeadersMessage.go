@@ -2,18 +2,21 @@ package network
 
 import (
 	"gochain/utils"
-	"log")
+	"log"
+)
 
 
 type GetHeadersMessage struct {
 	Command       []byte
+	SenderIp	  []byte
 	Version       []byte
 	NumberOfHashs []byte
 	StartingBlock []byte
 	EndingBlock   []byte
 }
 
-func (gh *GetHeadersMessage) Init(version, numHashs, startBlock, endBlock []byte) {
+func (gh *GetHeadersMessage) Init(senderIp, version, numHashs, startBlock, endBlock []byte) {
+	gh.SenderIp = senderIp
 	gh.Command = []byte("getheaders")
 	gh.Version = version
 	gh.NumberOfHashs = numHashs
@@ -37,7 +40,8 @@ func (gh GetHeadersMessage) GetCommand() []byte{
 }
 
 func (gh GetHeadersMessage) Serialize() []byte {
-	result := utils.ToLittleEndian(gh.Version,4)
+	result := utils.ToLittleEndian(gh.SenderIp,4) 
+	result = append(result, utils.ToLittleEndian(gh.Version,4)...)
 	result = append(result, gh.NumberOfHashs...)
 	result = append(result, utils.ToLittleEndian(gh.StartingBlock,32)...)
 	result = append(result, utils.ToLittleEndian(gh.EndingBlock,32)...)
@@ -45,9 +49,10 @@ func (gh GetHeadersMessage) Serialize() []byte {
 }
 
 func (gh *GetHeadersMessage) Parse(data []byte){
-	version := utils.ToLittleEndian(data[:4],4)
-	numHash := data[5:6]
-	sb := utils.ToLittleEndian(data[6:38],32)
-	eb := utils.ToLittleEndian(data[38:70],32)
-	gh.Init(version,numHash,sb,eb)
+	senderIp := utils.ToLittleEndian(data[:4],4)
+	version := utils.ToLittleEndian(data[4:8],4)
+	numHash := data[8:9]
+	sb := utils.ToLittleEndian(data[9:41],32)
+	eb := utils.ToLittleEndian(data[41:73],32)
+	gh.Init(senderIp,version,numHash,sb,eb)
 }

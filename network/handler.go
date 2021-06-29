@@ -1,7 +1,6 @@
 package network
 
 import (
-	"bytes"
 	"fmt"
 	"gochain/blockchain"
 	"io/ioutil"
@@ -10,20 +9,29 @@ import (
 )
 
 
-func HandleAddr(request []byte) {
-	var buff bytes.Buffer
-	var payload Addr
+// func HandleAddr(request []byte) {
+// 	var buff bytes.Buffer
+// 	var payload Addr
 
-	buff.Write(request[COMMANDLENGTH+4:])
-	dec := gob.NewDecoder(&buff)
-	err := dec.Decode(&payload)
-	if err != nil {
-		log.Panic(err)
-	}
+// 	buff.Write(request[COMMANDLENGTH+4:])
+// 	dec := gob.NewDecoder(&buff)
+// 	err := dec.Decode(&payload)
+// 	if err != nil {
+// 		log.Panic(err)
+// 	}
 
-	KNOWNNODES = append(KNOWNNODES, payload.AddrList...)
-	fmt.Printf("there are %d known nodes\n", len(KNOWNNODES))
-	RequestBlocks()
+// 	KNOWNNODES = append(KNOWNNODES, payload.AddrList...)
+// 	fmt.Printf("there are %d known nodes\n", len(KNOWNNODES))
+// 	RequestBlocks()
+// }
+
+func NodeIsKnown(address string)bool{
+	for _, item := range KNOWNNODES {
+        if item == address {
+            return true
+        }
+    }
+    return false
 }
 
 // func HandleInv(request []byte, chain *blockchain.BlockChain) {
@@ -92,20 +100,26 @@ func HandleAddr(request []byte) {
 // 	}
 // }
 
-// func HandleGetBlocks(request []byte, chain *blockchain.BlockChain) {
-// 	var buff bytes.Buffer
-// 	var payload GetBlocks
+func HandleBlock(request []byte, chain *blockchain.BlockChain){
+	var block BlockMessage
 
-// 	buff.Write(request[commandLength:])
-// 	dec := gob.NewDecoder(&buff)
-// 	err := dec.Decode(&payload)
-// 	if err != nil {
-// 		log.Panic(err)
-// 	}
+ 	block.Parse(request[COMMANDLENGTH+4:])
 
-// 	blocks := chain.GetBlockHashes()
-// 	SendInv(payload.AddrFrom, "block", blocks)
-// }
+	chain.AddBlock(block.Block)
+}
+
+func HandleGetBlock(request []byte, chain *blockchain.BlockChain) {
+ 	var payload GetBlockMessage
+
+ 	payload.Parse(request[COMMANDLENGTH+4:])
+	
+	bm := BlockMessage{}
+	block, err := chain.GetBlock(payload.BlockHash)
+	Handle(err)
+	bm.Init(&block)
+
+ 	SendData(string(payload.SenderIp), bm)
+}
 
 // func HandleGetData(request []byte, chain *blockchain.BlockChain) {
 // 	var buff bytes.Buffer
@@ -139,7 +153,7 @@ func HandleAddr(request []byte) {
 //get all the hashs in the DB from the startBlock to the endBlock
 //put all the blocks as argument in HeadersMessage struct
 //send the HeadersMessage
-func HandleGetHeaders(senderIp string,request []byte, chain *blockchain.BlockChain) {
+func HandleGetHeaders(request []byte, chain *blockchain.BlockChain) {
 	var payload GetHeadersMessage
 
 	payload.Parse(request[COMMANDLENGTH+4:])
@@ -147,7 +161,7 @@ func HandleGetHeaders(senderIp string,request []byte, chain *blockchain.BlockCha
 	blockHeaders := chain.GetBlockHeaders(payload.StartingBlock,payload.EndingBlock)
 	hm := HeadersMessage{}
 	hm.Init(blockHeaders)
-	SendData(senderIp,hm)
+	SendData(string(payload.SenderIp),hm)
 }
 
 //response for the getheaders command
@@ -221,39 +235,41 @@ func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
 	if err != nil {
 		log.Panic(err)
 	}
-	command := BytesToCmd(req[4:COMMANDLENGTH+4])
+	command := string(req[4:COMMANDLENGTH+4])
 	fmt.Printf("Received %s command\n", command)
 
 	switch command {
-	case "addr":
-		if VERACKRECEIVED[connectedNode]{
-			HandleAddr(req)
-		}else{
-			log.Panic("you don't made the handshake")
-		}
-	// case "block":
+	// case "addr":
 	// 	if VERACKRECEIVED[connectedNode]{
-	// 		HandleBlock(req, chain)
+	// 		HandleAddr(req)
 	// 	}else{
 	// 		log.Panic("you don't made the handshake")
-	// 	}		
+	// 	}
+	//"block" is a response to "getblock" command
+	case "block":
+	 	if VERACKRECEIVED[connectedNode]{
+	 		HandleBlock(req, chain)
+	 	}else{
+	 		log.Panic("you don't made the handshake")
+	 	}		
 	// case "inv":
 	// 	if VERACKRECEIVED[connectedNode]{
 	// 		HandleInv(req, chain)
 	// 	}else{
 	// 		log.Panic("you don't made the handshake")
 	// 	}
-	// case "getblocks":
-	// 	if VERACKRECEIVED[connectedNode]{
-	// 		HandleGetBlocks(req, chain)
-	// 	}else{
-	// 		log.Panic("you don't made the handshake")
-	// 	}	
-	// //request headers
+	//with this command you will receive a "block" command
+	case "getblock":
+	 	if VERACKRECEIVED[connectedNode]{
+	 		HandleGetBlock(req, chain)
+	 	}else{
+	 		log.Panic("you don't made the handshake")
+	 	}	
+	//request headers
 	case "getheaders":
 		if VERACKRECEIVED[connectedNode]{
 			//this need return all the block headers asked with a headers command
-			HandleGetHeaders(conn.RemoteAddr().String(),req, chain)
+			HandleGetHeaders(req, chain)
 		}else{
 			log.Panic("you don't made the handshake")
 		}

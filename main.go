@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+
 	"log"
 )
 
@@ -29,10 +30,9 @@ func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
-	var a int64
-	a = 256
-	b := ToHex(a)
-	fmt.Println(len(b))
+	add := "127.127.0.1"
+	addb := []byte(add)
+	fmt.Printf("%x",len(addb))
 }
 
 func ToHex(num int64) []byte{
