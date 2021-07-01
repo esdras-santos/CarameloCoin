@@ -4,9 +4,10 @@ import (
 	//"os"
 	//"gochain/cli"
 
-	"bytes"
-	"encoding/binary"
+	//"fmt"
+
 	"fmt"
+	"strconv"
 
 	"log"
 )
@@ -30,37 +31,37 @@ func main(){
 	//defer os.Exit(0) 
 	//cmd := cli.CommandLine{}
 	//cmd.Run()
-	add := "127.127.0.1"
-	addb := []byte(add)
-	fmt.Printf("%x",len(addb))
-}
-
-func ToHex(num int64) []byte{
-	buff := new(bytes.Buffer)
-	err := binary.Write(buff,binary.BigEndian,num)
-	if err != nil{
-		log.Panic(err)
-	}	
-
-	return buff.Bytes()
-}
-
-func mapkey(m map[byte]string, value string) (key byte, ok bool) {
-	for k, v := range m {
-	  if v == value { 
-		key = k
-		ok = true
-		return
-	  }
+	add := "127.0.0.1"
+	addb := AddressToBytes(add)
+	for i := 0;i<len(addb);i++{
+		fmt.Printf("%x ",addb[i])
 	}
-	return
+
+	fmt.Println(AddressToString(addb))
+}	
+
+func AddressToString(addr []byte) string{//IPv4
+	ip := fmt.Sprintf("%d.%d.%d.%d",addr[0],addr[1],addr[2],addr[3])
+	return ip
 }
 
-
-func toLittleEndian(bytes []byte) []byte{
-	var le []byte
-	for i := len(bytes)-1;i >= 0;i--{
-		le = append(le, bytes[i]) 
+func AddressToBytes(address string)[]byte{
+	var number []rune
+	var bytesIp []byte
+	address = fmt.Sprintf("%s%s",address,".")
+	for _,c := range address{
+		if c == '.'{	
+			i, err := strconv.Atoi(string(number))
+			if err != nil{
+				log.Panic(err)
+			}
+			
+			bytesIp = append(bytesIp, byte(i))
+			number = nil
+			
+		}else{
+			number = append(number, c)
+		}
 	}
-	return le
+	return bytesIp
 }

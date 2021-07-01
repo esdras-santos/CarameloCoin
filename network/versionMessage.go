@@ -43,7 +43,7 @@ func (vm *VersionMessage) Init(timestamp, receiverip, nonce, relay []byte) {
 	vm.ReceiverIP = receiverip
 	vm.ReceiverPort = []byte(PORT)
 	vm.SenderServices = []byte{0x00000000000000}
-	vm.SenderIp = []byte(NODEIP)
+	vm.SenderIp = AddressToBytes(NODEIP)
 	vm.SenderPort = []byte(PORT)
 	if nonce == nil {
 		vm.Nonce = utils.ToLittleEndian(utils.ToHex(int64(rand.Intn(int(math.Pow(2, 64))))), 8)

@@ -2,7 +2,7 @@ package network
 
 import (
 	//"bytes"
-	
+
 	//"encoding/hex"
 	"fmt"
 	"gochain/blockchain"
@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strconv"
 	"syscall"
 
 	"gopkg.in/vrecan/death.v3"
@@ -188,4 +189,25 @@ func CloseDB(chain *blockchain.BlockChain){
 	})
 }
 
+func AddressToBytes(address string)[]byte{
+	var number []rune
+	var bytesIp []byte
+	address = fmt.Sprintf("%s%s",address,".")
+	for _,c := range address{
+		if c == '.'{	
+			i, err := strconv.Atoi(string(number))
+			Handle(err)
+			bytesIp = append(bytesIp, byte(i))
+			number = nil
+			
+		}else{
+			number = append(number, c)
+		}
+	}
+	return bytesIp
+}
 
+func AddressToString(addr []byte) string{//IPv4
+	ip := fmt.Sprintf("%d.%d.%d.%d",addr[0],addr[1],addr[2],addr[3])
+	return ip
+}

@@ -1,6 +1,10 @@
 package network
 
-import "gochain/blockchain"
+import (
+	"gochain/blockchain"	
+	"gochain/utils"
+)
+
 
 type TransactionMessage struct {
 	Command     []byte
@@ -10,12 +14,12 @@ type TransactionMessage struct {
 
 func (tm *TransactionMessage) Init(nodeAddress string, tx *blockchain.Transaction){
 	tm.Command = []byte("transaction")
-	tm.NodeAddress = []byte(nodeAddress)
+	tm.NodeAddress = AddressToBytes(nodeAddress) //IPv4
 	tm.Transaction = tx
 }
 
 func (tm TransactionMessage) Serialize() []byte{
-	result := tm.NodeAddress
+	result := utils.ToLittleEndian(tm.NodeAddress,4)
 	result = append(result, tm.Transaction.Serialize()...)
 	return result
 }
@@ -25,5 +29,7 @@ func (tm TransactionMessage) GetCommand() []byte{
 }
 
 func (tm *TransactionMessage) Parse(data []byte) {
-	tm.NodeAddress =  data[]
+	var tx blockchain.Transaction
+	tm.NodeAddress = utils.ToLittleEndian(data[:4],4)
+	tm.Transaction = tx.Parse(data[4:])
 }

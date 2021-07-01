@@ -48,7 +48,7 @@ func (b *Block) HashTransactions() []byte{
 func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
 	block := Block{Height: utils.ToHex(height),Transactions: txs}
 	//currentTarget() must return the current target of the network and check if the difficult has changed
-	blockheader := &BlockHeader{[]byte{0x00000001},prevHash,block.HashTransactions(),utils.ToHex(time.Now().Unix()),TargetToBits(CurrentTarget()),[]byte{0x00000000}}
+	blockheader := &BlockHeader{[]byte{0x00000001},prevHash,block.HashTransactions(),utils.ToHex(time.Now().Unix()),TargetToBits(big.NewInt(0x09abcdef)),[]byte{0x00000000}}
 	block.BH = *blockheader
 	
 	pow := NewProof(&block)
@@ -135,9 +135,9 @@ func (b *BlockHeader) Hash() []byte{
 func NewProof(b *Block) *ProofOfWork{
 	var pow *ProofOfWork
 	//check if is the end of the 1 day period
-	if GetBlockHeight() % 8640 == 0{
-		b.BH.Bits = pow.NewBits()
-	}
+	// if GetBlockHeight() % 8640 == 0{
+	// 	b.BH.Bits = pow.NewBits()
+	// }
 	pow.Block = b
 
 	return pow
