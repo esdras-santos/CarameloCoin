@@ -2,12 +2,12 @@ package blockchain
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"gochain/utils"
-	
+
 	"math"
 	"math/big"
-
 )
 
 
@@ -17,24 +17,39 @@ type ProofOfWork struct{
 }
 
 
-//each block will be mined in approximately in each 6 seconds and in the end of the 24 hours the difficulty will be adjusted
+//each block will be mined in approximately in each 1 minute and in the end of the 24 hours the difficulty will be adjusted
 //number of seconds in one day
 const ONE_DAY = 86400
+
+//number of block that has to be mined in one day
+const BLOCKSPERDAY = 1440
 
 //adjust the bits in the of a period of approximately 1 day.
 //prevBits is the previous block bits before the adjust.
 //timeDifferential is the timeStamp difference between the first block of the period and the last block of the period.
 //return the new bits adjusted
-func (pow *ProofOfWork) NewBits(prevBits []byte, timeDifferential *big.Int) []byte{
-	if timeDifferential.Cmp(big.NewInt(0).Mul(big.NewInt(ONE_DAY),big.NewInt(4))) == 1{
-		timeDifferential = big.NewInt(0).Mul(big.NewInt(ONE_DAY),big.NewInt(4))
+func (pow *ProofOfWork) NewBits(prevBits []byte, timeDifferential int) []byte{
+	if timeDifferential > (ONE_DAY * 4){
+		timeDifferential = (ONE_DAY * 4)
 	}
-	if timeDifferential.Cmp(big.NewInt(0).Div(big.NewInt(ONE_DAY),big.NewInt(4))) == -1{
-		timeDifferential = big.NewInt(0).Div(big.NewInt(ONE_DAY),big.NewInt(4))
+	if timeDifferential < (ONE_DAY / 4){
+		timeDifferential = (ONE_DAY / 4)
 	}
 
-	newTarget := big.NewInt(0).Mul(BitsToTarget(prevBits),big.NewInt(0).Div(timeDifferential,big.NewInt(ONE_DAY)))
+	newTarget := big.NewInt(0).Mul(BitsToTarget(prevBits),big.NewInt(int64(timeDifferential /ONE_DAY)))
 	return TargetToBits(newTarget)
+}
+
+func GetBits(height int64) []byte{
+	var chain BlockChain
+	var pow ProofOfWork
+	lastBlock,err := chain.GetBlock(chain.LastHash)
+	Handle(err)
+	if height % BLOCKSPERDAY == 0{
+		return pow.NewBits(lastBlock.BH.Bits,int(GetTimeDifference()))
+	}else{
+		return lastBlock.BH.Bits
+	}
 }
 
 func TargetToBits(target *big.Int) []byte{
@@ -82,11 +97,27 @@ func (pow *ProofOfWork) Run()(int){
 }
 
 func BitsToTarget(bits []byte) *big.Int{
-	exponent := big.NewInt(0)
-	coefficient := big.NewInt(0)
-	exponent.SetBytes([]byte{bits[4]})
-	coefficient.SetBytes(utils.ToLittleEndian(bits[:3],3))
-	return coefficient.Mul(coefficient,exponent.Exp(big.NewInt(256),exponent.Sub(exponent,big.NewInt(3)),nil))
+	var exponent int64
+	var coefficient int64
+	
+	exponent = int64(binary.BigEndian.Uint32([]byte{bits[4]}))
+	coefficient = int64(binary.BigEndian.Uint32(utils.ToLittleEndian(bits[:3],3)))
+	
+	return big.NewInt(0).Mul(big.NewInt(coefficient),big.NewInt(0).Exp(big.NewInt(256),big.NewInt(exponent-3),nil))
+}
+
+func  GetTimeDifference() (int64){
+	var chain BlockChain
+	iter := &BlockChainIterator{chain.LastHash, chain.Database}
+	for i := 0;i < BLOCKSPERDAY;i++{
+		iter.Next()
+	}
+	firstblock,err := chain.GetBlock(iter.CurrentHash)
+	Handle(err)
+	lastblock,err := chain.GetBlock(iter.CurrentHash)
+	Handle(err)
+	tf := binary.BigEndian.Uint64(lastblock.BH.TimeStamp) - binary.BigEndian.Uint64(firstblock.BH.TimeStamp)
+	return int64(tf)
 }
 
 func (pow *ProofOfWork) Validate()bool{

@@ -59,6 +59,8 @@ func (chain *BlockChain) AddBlock(block *Block){
 	Handle(err)
 }
 
+
+
 func (chain *BlockChain) GetBlock(blockHash []byte) (Block, error){
 	var block Block
 

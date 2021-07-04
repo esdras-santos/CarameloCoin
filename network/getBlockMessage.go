@@ -8,13 +8,11 @@ import (
 //when that message is sended your node will receive a "blockchain" message
 type GetBlockMessage struct{
 	Command []byte
-	BlockHash []byte
 	SenderIp []byte
 }
 
-func (gb *GetBlockMessage) Init(hash []byte, senderIp []byte){
+func (gb *GetBlockMessage) Init(senderIp []byte){
 	gb.Command = []byte("getblock")
-	gb.BlockHash = hash
 	gb.SenderIp = senderIp
 }
 
@@ -23,14 +21,12 @@ func (gb GetBlockMessage) GetCommand() []byte{
 }
 
 func (gb GetBlockMessage) Serialize() []byte{
-	result := utils.ToLittleEndian(gb.BlockHash,len(gb.BlockHash))
-	result = append(result, utils.ToLittleEndian(gb.SenderIp,len(gb.SenderIp))...)
+	result := utils.ToLittleEndian(gb.SenderIp,4)
 	return result
 }
 
 func (gb *GetBlockMessage) Parse(data []byte){
-	bh := utils.ToLittleEndian(data,len(data[:32]))
-	sip := utils.ToLittleEndian(data[32:],len(data[32:]))
-	gb.Init(bh,sip)
+	sip := utils.ToLittleEndian(data,4)
+	gb.Init(sip)
 }
 

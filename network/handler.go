@@ -1,13 +1,13 @@
 package network
 
 import (
+	"encoding/hex"
 	"fmt"
 	"gochain/blockchain"
 	"io/ioutil"
 	"log"
 	"net"
 )
-
 
 // func HandleAddr(request []byte) {
 // 	var buff bytes.Buffer
@@ -108,17 +108,21 @@ func HandleBlock(request []byte, chain *blockchain.BlockChain){
 	chain.AddBlock(block.Block)
 }
 
+
+//this function need to be reajusted to get blocks in distributed way
 func HandleGetBlock(request []byte, chain *blockchain.BlockChain) {
  	var payload GetBlockMessage
 
  	payload.Parse(request[COMMANDLENGTH+4:])
-	
-	bm := BlockMessage{}
-	block, err := chain.GetBlock(payload.BlockHash)
-	Handle(err)
-	bm.Init(&block)
+	blockhashs := chain.GetBlockHashes()
+	for _,h := range blockhashs{
+		bm := BlockMessage{}
+		block, err := chain.GetBlock(h)
+		Handle(err)
+		bm.Init(&block)
 
- 	SendData(string(payload.SenderIp), bm)
+ 		SendData(string(payload.SenderIp), bm)
+	}	
 }
 
 // func HandleGetData(request []byte, chain *blockchain.BlockChain) {
@@ -198,35 +202,29 @@ func HandleVerAck(request []byte){
 	VERACKRECEIVED[string(payload.SenderIp)] = true
 }
 
-// func HandleTx(request []byte, chain *blockchain.BlockChain) {
-// 	var buff bytes.Buffer
-// 	var payload Tx
+func HandleTx(request []byte, chain *blockchain.BlockChain) {
+	var payload TransactionMessage
 
-// 	buff.Write(request[command:])
-// 	dec := gob.NewDecoder(&buff)
-// 	err := dec.Decode(&payload)
-// 	if err != nil {
-// 		log.Panic(err)
-// 	}
+	payload.Parse(request[COMMANDLENGTH+4:])
 
-// 	txData := payload.Transaction
-// 	tx := blockchain.DeserializeTransaction(txData)
-// 	memoryPool[hex.EncodeToString(tx.ID)] = tx
+	tx := payload.Transaction
 
-// 	fmt.Printf("%s, %d\n", nodeAddress, len(memoryPool))
+	MEMPOOL[hex.EncodeToString(tx.Id())] = *tx
 
-// 	if nodeAddress == KnownNodes[0] {
-// 		for _, node := range KnownNodes {
-// 			if node != nodeAddress && node != payload.AddrFrom {
-// 				SendInv(node, "tx", [][]byte{tx.ID})
-// 			}
-// 		}
-// 	} else {
-// 		if len(memoryPool) >= 2 && len(minerAddress) > 0 {
-// 			MineTx(chain)
-// 		}
-// 	}
-// }
+	fmt.Printf("%s, %d\n", NODEIP, len(MEMPOOL))
+
+	// if NODEIP == KNOWNNODES[0] {
+	// 	for _, node := range KNOWNNODES {
+	// 		if node != NODEIP && node != AddressToString(payload.FromIp) {
+	// 			SendInv(node, "tx", [][]byte{tx.ID})
+	// 		}
+	// 	}
+	// } else {
+	// 	if len(memoryPool) >= 2 && len(minerAddress) > 0 {
+	// 		MineTx(chain)
+	// 	}
+	// }
+}
 
 func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
 	req, err := ioutil.ReadAll(conn)
@@ -287,12 +285,12 @@ func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
 	// 	}else{
 	// 		log.Panic("you don't made the handshake")
 	// 	}	
-	// case "tx":
-	// 	if VERACKRECEIVED[connectedNode]{
-	// 		HandleTx(req, chain)
-	// 	}else{
-	// 		log.Panic("you don't made the handshake")
-	// 	}		
+	case "transaction":
+	 	if VERACKRECEIVED[connectedNode]{
+	 		HandleTx(req, chain)
+	 	}else{
+	 		log.Panic("you don't made the handshake")
+	 	}		
 	case "version":
 		HandleVersion(req, chain)
 	case "verack":

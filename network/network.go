@@ -38,7 +38,7 @@ var(
 	//hard-coded first node ip
 	KNOWNNODES = []string{"45.167.55.3:9333"}
 	blocksInTransit = [][]byte{}
-	memoryPool = make(map[string]blockchain.Transaction)
+	MEMPOOL = make(map[string]blockchain.Transaction)
 )
 
 type Addr struct{
@@ -132,9 +132,9 @@ func StartServer(nodeID string){
 // func MineTx(chain *blockchain.BlockChain){
 // 	var txs []*blockchain.Transaction
 
-// 	for id := range memoryPool{
-// 		fmt.Printf("tx: %s\n",memoryPool[id].ID)
-// 		tx := memoryPool[id]
+// 	for id := range MEMPOOL{
+// 		fmt.Printf("tx: %s\n",MEMPOOL[id].ID)
+// 		tx := MEMPOOL[id]
 // 		if chain.VerifyTransaction(&tx){
 // 			txs = append(txs, &tx)
 // 		}
@@ -155,7 +155,7 @@ func StartServer(nodeID string){
 // 	fmt.Println("New Block mined")
 // 	 for _,tx := range txs{
 // 		 txID := hex.EncodeToString(tx.ID)
-// 		 delete(memoryPool,txID)
+// 		 delete(MEMPOOL,txID)
 // 	 }
 
 // 	 for _,node := range KnownNodes{
@@ -164,7 +164,7 @@ func StartServer(nodeID string){
 // 		 }
 // 	 }
 
-// 	 if len(memoryPool) > 0{
+// 	 if len(MEMPOOL) > 0{
 // 		 MineTx(chain)
 // 	 }
 // }

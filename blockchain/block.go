@@ -48,7 +48,7 @@ func (b *Block) HashTransactions() []byte{
 func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
 	block := Block{Height: utils.ToHex(height),Transactions: txs}
 	//currentTarget() must return the current target of the network and check if the difficult has changed
-	blockheader := &BlockHeader{[]byte{0x00000001},prevHash,block.HashTransactions(),utils.ToHex(time.Now().Unix()),TargetToBits(big.NewInt(0x09abcdef)),[]byte{0x00000000}}
+	blockheader := &BlockHeader{[]byte{0x00000001},prevHash,block.HashTransactions(),utils.ToHex(time.Now().Unix()),GetBits(height),[]byte{0x00000000}}
 	block.BH = *blockheader
 	
 	pow := NewProof(&block)
@@ -144,9 +144,11 @@ func NewProof(b *Block) *ProofOfWork{
 }
 
 func (b *BlockHeader) Difficulty() *big.Int{
-	lowest := big.NewInt(0)
-	lowest.Mul(big.NewInt(0xffff),(big.NewInt(0)).Exp(big.NewInt(256),(big.NewInt(0)).Sub(big.NewInt(0x1d),big.NewInt(3)),nil))
-	return lowest.Div(lowest,b.Target())
+	
+	lowest := big.NewInt(0).Mul(big.NewInt(int64(0xffff)),big.NewInt(0).Exp(big.NewInt(256),big.NewInt(0x1d-3),nil))
+	//lowest = 0xffff * int(math.Pow(256,(0x1d - 3)))
+	
+	return big.NewInt(0).Div(lowest,b.Target()) 
 }
 
 func (b *BlockHeader) Target() *big.Int{
