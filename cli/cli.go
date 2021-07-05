@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"gochain/blockchain"
@@ -33,8 +34,8 @@ func (cli *CommandLine) validateArgs(){
 
 }
 
-func (cli *CommandLine) StartNode(nodeID string){
-	fmt.Printf("Starting Node %s\n",nodeID)
+func (cli *CommandLine) StartNode(){
+	fmt.Printf("Starting Node \n")
 
 	if len(network.NODEIP) > 0{
 		if wallet.ValidateAddress(network.NODEIP){
@@ -43,11 +44,11 @@ func (cli *CommandLine) StartNode(nodeID string){
 			log.Panic("Wrong miner address")
 		}
 	}
-	network.StartServer(nodeID)
+	network.StartServer()
 }
 
-func (cli *CommandLine) reindexUTXO(nodeID string){
-	chain := blockchain.ContinueBlockChain(nodeID)
+func (cli *CommandLine) reindexUTXO(){
+	chain := blockchain.ContinueBlockChain()
 	defer chain.Database.Close()
 	UTXOSet := blockchain.UTXOSet{chain}
 	UTXOSet.Reindex()
@@ -56,24 +57,39 @@ func (cli *CommandLine) reindexUTXO(nodeID string){
 	fmt.Printf("Done! There are %d transactions in the UTXO set.\n",count)
 }
 
-func (cli *CommandLine) listAddresses(nodeID string){
-	wallets,_ := wallet.CreateWallets(nodeID)
-	addresses := wallets.GetAllAddresses()
+// func (cli *CommandLine) listAddresses(nodeID string){
+// 	wallets,_ := wallet.CreateWallets(nodeID)
+// 	addresses := wallets.GetAllAddresses()
 
-	for _,address := range addresses{
-		fmt.Println(address)
+// 	for _,address := range addresses{
+// 		fmt.Println(address)
+// 	}
+// }
+
+func (cli *CommandLine) createWallet(){
+	w := wallet.MakeWallet()
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter Password: ")
+	password, err := reader.ReadString('\n')
+	if err != nil{
+		log.Panic(err)
 	}
+	reader1 := bufio.NewReader(os.Stdin)
+	fmt.Print("confirm Password: ")
+	password1, err := reader1.ReadString('\n')
+	if err != nil{
+		log.Panic(err)
+	}
+	if password != password1{
+		log.Panic("wrong passoword!")
+	}
+	w.SaveFile(password)
+	
+	fmt.Printf("New address is: %s \n",w.Address())
 }
 
-func (cli *CommandLine) createWallet(nodeID string){
-	wallets,_ := wallet.CreateWallets(nodeID)
-	address := wallets.AddWallet()
-	wallets.SaveFile(nodeID)
-	fmt.Printf("New address is: %s \n",address)
-}
-
-func (cli *CommandLine) printChain(nodeID string){
-	chain := blockchain.ContinueBlockChain(nodeID)
+func (cli *CommandLine) printChain(){
+	chain := blockchain.ContinueBlockChain()
 	defer chain.Database.Close()
 	iter := chain.Iterator()
 
@@ -94,27 +110,30 @@ func (cli *CommandLine) printChain(nodeID string){
 		}
 	}
 }
-func (cli *CommandLine) createblockchain(address,nodeID string){
-	if !wallet.ValidateAddress(address){
-		log.Panic("Address is not Valid")
-	}
-	wallets, err := wallet.CreateWallets(nodeID)
+func (cli *CommandLine) createblockchain(){
+	w := wallet.MakeWallet()
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter Password: ")
+	password, err := reader.ReadString('\n')
 	if err != nil{
 		log.Panic(err)
 	}
-	w := wallets.GetWallet(address)
-	chain := blockchain.InitBlockChain(&w,nodeID)
+	err = w.LoadFile(password)
+	if err != nil{
+		log.Panic(err)
+	}
+	chain := blockchain.InitBlockChain(w)
 	chain.Database.Close()
 
 	UTXOSet := blockchain.UTXOSet{chain}
 	UTXOSet.Reindex()
 	fmt.Println("Finished!")
 }
-func (cli *CommandLine) getBalance(address,nodeID string){
+func (cli *CommandLine) getBalance(address string){
 	if !wallet.ValidateAddress(address){
 		log.Panic("Address is not Valid")
 	}
-	chain := blockchain.ContinueBlockChain(nodeID)
+	chain := blockchain.ContinueBlockChain()
 	UTXOSet := blockchain.UTXOSet{chain}
 	defer chain.Database.Close()
 
@@ -128,28 +147,32 @@ func (cli *CommandLine) getBalance(address,nodeID string){
 	}
 	fmt.Printf("Balance of %s: %d \n",address,balance)
 }
-func (cli *CommandLine) send(from, to string, amount int, nodeID string, mineNow bool){
+func (cli *CommandLine) send(to string, amount int, mineNow bool){
 	if !wallet.ValidateAddress(to){
 		log.Panic("Address is not Valid")
 	}
-	if !wallet.ValidateAddress(from){
-		log.Panic("Address is not Valid")
-	}
-	chain := blockchain.ContinueBlockChain(nodeID)
+	
+	chain := blockchain.ContinueBlockChain()
 	UTXOSet := blockchain.UTXOSet{chain}
 	defer chain.Database.Close()
 
-	wallets, err := wallet.CreateWallets(nodeID)
+	
+	wFrom := wallet.MakeWallet()
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter Password: ")
+	password, err := reader.ReadString('\n')
 	if err != nil{
 		log.Panic(err)
 	}
-	wFrom := wallets.GetWallet(from)
+	err = wFrom.LoadFile(password)
+	if err != nil{
+		log.Panic(err)
+	}
 
 
-
-	tx := blockchain.NewTransaction(&wFrom, to, amount, &UTXOSet)
+	tx := blockchain.NewTransaction(wFrom, to, amount, &UTXOSet)
 	if mineNow{
-		cbTx := blockchain.CoinbaseTx(&wFrom)
+		cbTx := blockchain.CoinbaseTx(wFrom)
 		
 		txs := []*blockchain.Transaction{cbTx, tx}
 
@@ -178,11 +201,7 @@ func (cli *CommandLine) send(from, to string, amount int, nodeID string, mineNow
 func (cli *CommandLine) Run(){
 	cli.validateArgs()
 
-	nodeID := os.Getenv("NODE_ID")
-	if nodeID == ""{
-		fmt.Printf("NODE_ID env is not set!")
-		runtime.Goexit()
-	}
+	
 
 	getBalanceCmd := flag.NewFlagSet("getbalance",flag.ExitOnError)
 	createBlockchainCmd := flag.NewFlagSet("createblockchain",flag.ExitOnError)
@@ -236,41 +255,37 @@ func (cli *CommandLine) Run(){
 			getBalanceCmd.Usage()
 			runtime.Goexit()
 		}
-		cli.getBalance(*getBalanceAddress, nodeID)
+		cli.getBalance(*getBalanceAddress)
 	}
 	if createBlockchainCmd.Parsed(){
 		if *createBlockchainAddress == ""{
 			createBlockchainCmd.Usage()
 			runtime.Goexit()
 		}
-		cli.createblockchain(*createBlockchainAddress, nodeID)
+		cli.createblockchain()
 	}
 	if printChainCmd.Parsed(){
-		cli.printChain(nodeID)
+		cli.printChain()
 	}
 	if createWalletCmd.Parsed(){
-		cli.createWallet(nodeID)
+		cli.createWallet()
 	}
-	if listAddressesCmd.Parsed(){
-		cli.listAddresses(nodeID)
-	}
+	// if listAddressesCmd.Parsed(){
+	// 	cli.listAddresses()
+	// }
 	if reindexUTXOCmd.Parsed(){
-		cli.reindexUTXO(nodeID)
+		cli.reindexUTXO()
 	}
 	if sendCmd.Parsed(){
 		if *sendFrom == "" || *sendTo == "" || *sendAmount <= 0{
 			sendCmd.Usage()
 			runtime.Goexit()
 		}
-		cli.send(*sendFrom,*sendTo,*sendAmount,nodeID,*sendMine)
+		cli.send(*sendTo,*sendAmount,*sendMine)
 	}
 
 	if startNodeCmd.Parsed(){
-		nodeID := os.Getenv("NODE_ID")
-		if nodeID == ""{
-			startNodeCmd.Usage()
-			runtime.Goexit()
-		}
-		cli.StartNode(nodeID)
+		
+		cli.StartNode()
 	}
 }

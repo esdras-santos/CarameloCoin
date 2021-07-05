@@ -2,13 +2,19 @@ package wallet
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/gob"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"math/big"
+	"os"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -16,6 +22,7 @@ import (
 const(
 	checksumLength = 4
 	version = byte(0x00)
+	walletFile = "./tmp/wallet.data"
 )
 
 type Wallet struct{
@@ -111,6 +118,108 @@ func CheckSum(payload []byte) []byte{
 	secondHash := sha256.Sum256(firstHash[:])
 
 	return secondHash[:checksumLength]
+}
+
+func (w *Wallet) LoadFile(password string) error{
+	if _,err := os.Stat(walletFile);os.IsNotExist(err){
+		return err
+	}
+
+	var wallet Wallet
+
+	fileContent, err := ioutil.ReadFile(walletFile)
+	Handle(err)
+
+	gob.Register(elliptic.P256())
+	decoder := gob.NewDecoder(bytes.NewReader(decrypt(keyAdjust(password),fileContent)))
+	err = decoder.Decode(&wallet)
+	Handle(err)
+	w = &wallet
+
+	return nil
+}
+
+func (w *Wallet) SaveFile(password string) {
+	var content bytes.Buffer
+
+	gob.Register(elliptic.P256())
+	encoder := gob.NewEncoder(&content)
+	err := encoder.Encode(w)
+	Handle(err)
+	aes.NewCipher([]byte(password))
+	
+
+	err = ioutil.WriteFile(walletFile,encrypt(keyAdjust(password),content.Bytes()),0644)
+	Handle(err)
+}
+
+func keyAdjust(password string) []byte{
+	key := []byte(password)
+	if len(key) < 16{
+		for i := len(key);i<16;i++{
+			key = append(key, 0x00)
+		}
+	}else if len(key) < 24{
+		for i := len(key);i<24;i++{
+			key = append(key, 0x00)
+		}
+	}else if len(key) < 32{
+		for i := len(key);i<32;i++{
+			key = append(key, 0x00)
+		}
+	}
+	return key
+}
+
+//encrypt the wallet
+func encrypt(key []byte,data []byte) []byte{
+
+
+    // generate a new aes cipher using our 32 byte long key
+    c, err := aes.NewCipher(key)
+    Handle(err)
+
+    // gcm or Galois/Counter Mode, is a mode of operation
+    // for symmetric key cryptographic block ciphers
+    // - https://en.wikipedia.org/wiki/Galois/Counter_Mode
+    gcm, err := cipher.NewGCM(c)
+    // if any error generating new GCM
+    // handle them
+    Handle(err)
+
+    // creates a new byte array the size of the nonce
+    // which must be passed to Seal
+    nonce := make([]byte, gcm.NonceSize())
+    // populates our nonce with a cryptographically secure
+    // random sequence
+    if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+        fmt.Println(err)
+    }
+
+    
+    return gcm.Seal(nonce, nonce, data, nil)
+
+	
+}
+
+//decrypt the wallet
+func decrypt(key []byte,data []byte) []byte{    
+
+    c, err := aes.NewCipher(key)
+    Handle(err)
+
+    gcm, err := cipher.NewGCM(c)
+    Handle(err)
+
+    nonceSize := gcm.NonceSize()
+    if len(data) < nonceSize {
+        fmt.Println(err)
+    }
+
+    nonce, ciphertext := data[:nonceSize], data[nonceSize:]
+    plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+    Handle(err)
+    return plaintext
 }
 
 func Handle(err error){

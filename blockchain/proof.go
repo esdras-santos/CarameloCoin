@@ -43,7 +43,7 @@ func (pow *ProofOfWork) NewBits(prevBits []byte, timeDifferential int) []byte{
 func GetBits(height int64) []byte{
 	var chain BlockChain
 	var pow ProofOfWork
-	lastBlock,err := chain.GetBlock(chain.LastHash)
+	lastBlock,err := chain.GetBlock(chain.GetLastHash())
 	Handle(err)
 	if height % BLOCKSPERDAY == 0{
 		return pow.NewBits(lastBlock.BH.Bits,int(GetTimeDifference()))

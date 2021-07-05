@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	dbPath      = "./tmp/blocks_%s"
+	dbPath      = "./tmp/blocks"
 	genesisData = "First Transaction from Genesis"
 )
 
@@ -143,6 +143,27 @@ func (chain *BlockChain) GetBestHeight() int64{
 	return int64(binary.BigEndian.Uint64(lastBlock.Height))
 }
 
+func (chain *BlockChain) GetLastHash() []byte{
+	
+	var lastBlock Block
+
+	err := chain.Database.View(func(txn *badger.Txn) error{
+		item, err := txn.Get([]byte("lh"))
+		Handle(err)
+		lastHash,_ := item.Value()
+
+		item, err = txn.Get(lastHash)
+		Handle(err)
+		lastBlockData,_ := item.Value()
+
+		lastBlock.Parse(lastBlockData)
+
+		return nil
+	})
+	Handle(err)
+	return lastBlock.BH.Hash()
+}
+
 func (chain *BlockChain) MineBlock(transactions []*Transaction) *Block{
 	var lastHash []byte
 	var lastHeight int64
@@ -194,20 +215,20 @@ func DBexists(path string) bool {
 	return true
 }
 
-func InitBlockChain(w *wallet.Wallet,nodeId string) *BlockChain {
-	path := fmt.Sprintf(dbPath,nodeId)
+func InitBlockChain(w *wallet.Wallet) *BlockChain {
+	
 
-	if DBexists(path) {
+	if DBexists(dbPath) {
 		fmt.Println("Blockchain already exists")
 		runtime.Goexit()
 	}
 
 	var lastHash []byte
 	opts := badger.DefaultOptions
-	opts.Dir = path
-	opts.ValueDir = path
+	opts.Dir = dbPath
+	opts.ValueDir = dbPath
 
-	db, err := openDB(path,opts)
+	db, err := openDB(dbPath,opts)
 	Handle(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
@@ -228,9 +249,8 @@ func InitBlockChain(w *wallet.Wallet,nodeId string) *BlockChain {
 	return &blockchain
 }
 
-func ContinueBlockChain(nodeId string) *BlockChain {
-	path := fmt.Sprintf(dbPath,nodeId)
-	if DBexists(path) == false {
+func ContinueBlockChain() *BlockChain {
+	if DBexists(dbPath) == false {
 		fmt.Println("No existing blockchain found, create one!")
 		runtime.Goexit()
 	}
@@ -238,10 +258,10 @@ func ContinueBlockChain(nodeId string) *BlockChain {
 	var lastHash []byte
 
 	opts := badger.DefaultOptions
-	opts.Dir = path
-	opts.ValueDir = path
+	opts.Dir = dbPath
+	opts.ValueDir = dbPath
 
-	db, err := openDB(path,opts)
+	db, err := openDB(dbPath,opts)
 	Handle(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
