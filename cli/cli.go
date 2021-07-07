@@ -36,10 +36,20 @@ func (cli *CommandLine) validateArgs(){
 
 func (cli *CommandLine) StartNode(){
 	fmt.Printf("Starting Node \n")
-
+	w := wallet.MakeWallet()
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter Password: ")
+	password, err := reader.ReadString('\n')
+	if err != nil{
+		log.Panic(err)
+	}
+	err = w.LoadFile(password,"./tmp/wallet.data")
+	if err != nil{
+		log.Panic(err)
+	}
 	if len(network.NODEIP) > 0{
-		if wallet.ValidateAddress(network.NODEIP){
-			fmt.Println("Mining is on. Address to receive rewards: ",network.NODEIP)
+		if wallet.ValidateAddress(string(w.Address())){
+			fmt.Println("Mining is on. Address to receive rewards: ",string(w.Address()))
 		}else{
 			log.Panic("Wrong miner address")
 		}
@@ -66,7 +76,18 @@ func (cli *CommandLine) reindexUTXO(){
 // 	}
 // }
 
+func walletExists(path string) bool {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
 func (cli *CommandLine) createWallet(){
+	if walletExists("./tmp/wallet.data"){
+		fmt.Println("Wallet already exists")
+		runtime.Goexit()
+	}
 	w := wallet.MakeWallet()
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Enter Password: ")
@@ -83,7 +104,7 @@ func (cli *CommandLine) createWallet(){
 	if password != password1{
 		log.Panic("wrong passoword!")
 	}
-	w.SaveFile(password)
+	w.SaveFile(password,"./tmp/wallet.data")
 	
 	fmt.Printf("New address is: %s \n",w.Address())
 }
@@ -118,7 +139,7 @@ func (cli *CommandLine) createblockchain(){
 	if err != nil{
 		log.Panic(err)
 	}
-	err = w.LoadFile(password)
+	err = w.LoadFile(password,"./tmp/wallet.data")
 	if err != nil{
 		log.Panic(err)
 	}
@@ -164,7 +185,7 @@ func (cli *CommandLine) send(to string, amount int, mineNow bool){
 	if err != nil{
 		log.Panic(err)
 	}
-	err = wFrom.LoadFile(password)
+	err = wFrom.LoadFile(password,"./tmp/wallet.data")
 	if err != nil{
 		log.Panic(err)
 	}

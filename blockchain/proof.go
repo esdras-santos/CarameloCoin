@@ -45,7 +45,9 @@ func GetBits(height int64) []byte{
 	var pow ProofOfWork
 	lastBlock,err := chain.GetBlock(chain.GetLastHash())
 	Handle(err)
-	if height % BLOCKSPERDAY == 0{
+	if height == 0{
+		return []byte{0x00000010}
+	}else if height % BLOCKSPERDAY == 0{
 		return pow.NewBits(lastBlock.BH.Bits,int(GetTimeDifference()))
 	}else{
 		return lastBlock.BH.Bits

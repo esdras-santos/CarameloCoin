@@ -124,7 +124,7 @@ func CoinbaseTx(w *wallet.Wallet) *Transaction{
 	in := TxInput{[]byte{0x00},0xffffffff,nil,[]byte{0xff,0xff,0xff,0xff}}
 	amount,err := rand.Int(rand.Reader,big.NewInt(50000))
 	Handle(err)
-	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
+	pubKeyHash := w.PublicKeyHash()
 	
 	//the coinbase transaction will pay a random amount between 1 and 50k to the miner. just for the meme LOL KEKW
 	out := TxOutput{uint(amount.Uint64()+1),script.P2pkhScript(pubKeyHash)}
@@ -140,7 +140,7 @@ func NewTransaction(from *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *
 
 
 
-	pubKeyHashFrom := wallet.PublicKeyHash(from.PublicKey)
+	pubKeyHashFrom := from.PublicKeyHash()
 	pubKeyHashTo := wallet.AddressToPKH(to)
 	acc, validOutputs := UTXO.FindSpendableOutputs(pubKeyHashFrom, amount)
 

@@ -22,7 +22,7 @@ import (
 const(
 	checksumLength = 4
 	version = byte(0x00)
-	walletFile = "./tmp/wallet.data"
+	//walletFile = "./tmp/wallet.data"
 )
 
 type Wallet struct{
@@ -31,7 +31,7 @@ type Wallet struct{
 }
 
 func (w Wallet) Address() []byte{
-	pubHash := PublicKeyHash(w.PublicKey)
+	pubHash := w.PublicKeyHash()
 	versionedHash := append([]byte{version},pubHash...)
 	checksum := CheckSum(versionedHash)
 	fullHash := append(versionedHash,checksum...)
@@ -54,7 +54,7 @@ func ValidateAddress(address string) bool{
 	return bytes.Compare(actualChecksum,targetChecksum) == 0
 }
 
-func NewKeyPair(compressed bool) (ecdsa.PrivateKey,[]byte){
+func NewKeyPair() (ecdsa.PrivateKey,[]byte){
 	curve := elliptic.P256()
 	private, err := ecdsa.GenerateKey(curve,rand.Reader)
 	Handle(err)
@@ -68,13 +68,13 @@ func NewKeyPair(compressed bool) (ecdsa.PrivateKey,[]byte){
 
 
 func MakeWallet() *Wallet{
-	private,public := NewKeyPair(true)
+	private,public := NewKeyPair()
 	wallet := Wallet{private,public}
 	return &wallet
 }
 
-func PublicKeyHash(pubKey []byte) []byte{
-	pubHash := sha256.Sum256(pubKey)
+func (w *Wallet) PublicKeyHash() []byte{
+	pubHash := sha256.Sum256(w.PublicKey)
 	
 	hasher := ripemd160.New()
 	_,err := hasher.Write(pubHash[:])
@@ -120,33 +120,32 @@ func CheckSum(payload []byte) []byte{
 	return secondHash[:checksumLength]
 }
 
-func (w *Wallet) LoadFile(password string) error{
+func (w *Wallet) LoadFile(password string,walletFile string) error{
 	if _,err := os.Stat(walletFile);os.IsNotExist(err){
 		return err
 	}
 
-	var wallet Wallet
+	
 
 	fileContent, err := ioutil.ReadFile(walletFile)
 	Handle(err)
-
+	fileContent = decrypt(keyAdjust(password),fileContent)
 	gob.Register(elliptic.P256())
-	decoder := gob.NewDecoder(bytes.NewReader(decrypt(keyAdjust(password),fileContent)))
-	err = decoder.Decode(&wallet)
+	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
+	err = decoder.Decode(w)
 	Handle(err)
-	w = &wallet
+	
 
 	return nil
 }
 
-func (w *Wallet) SaveFile(password string) {
+func (w *Wallet) SaveFile(password string,walletFile string) {
 	var content bytes.Buffer
 
 	gob.Register(elliptic.P256())
 	encoder := gob.NewEncoder(&content)
 	err := encoder.Encode(w)
 	Handle(err)
-	aes.NewCipher([]byte(password))
 	
 
 	err = ioutil.WriteFile(walletFile,encrypt(keyAdjust(password),content.Bytes()),0644)

@@ -3,7 +3,7 @@ package blockchain
 import (
 	"bytes"
 	"encoding/binary"
-	"gochain/wallet"
+	
 	
 	"gochain/utils"
 )
@@ -122,10 +122,10 @@ func ParseOutputs(data []byte) ([]TxOutput){
 	return outs
 }
 
-func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
-	lockingHash := wallet.PublicKeyHash(in.ScriptSig)
-	return bytes.Compare(lockingHash,pubKeyHash) == 0
-}
+// func (in *TxInput) UsesKey(pubKeyHash []byte) bool{
+// 	lockingHash := wallet.PublicKeyHash(in.ScriptSig)
+// 	return bytes.Compare(lockingHash,pubKeyHash) == 0
+// }
 
 func (out *TxOutput) IsLockedWithKey(scriptPubKey []byte) bool{
 	return bytes.Equal(out.ScriptPubKey,scriptPubKey)

@@ -46,6 +46,7 @@ func (b *Block) HashTransactions() []byte{
 }
 
 func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
+	
 	block := Block{Height: utils.ToHex(height),Transactions: txs}
 	//currentTarget() must return the current target of the network and check if the difficult has changed
 	blockheader := &BlockHeader{[]byte{0x00000001},prevHash,block.HashTransactions(),utils.ToHex(time.Now().Unix()),GetBits(height),[]byte{0x00000000}}
@@ -59,8 +60,10 @@ func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
 
 //create genesis block
 func Genesis(coinbase *Transaction) *Block{
+	
 	return CreateBlock([]*Transaction{coinbase},nil,0)
 }
+
 
 func (b *Block) Parse(s []byte) {
 	b.Height = utils.ToHex(int64(binary.LittleEndian.Uint64(s[:8])))
