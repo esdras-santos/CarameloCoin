@@ -43,14 +43,20 @@ func (pow *ProofOfWork) NewBits(prevBits []byte, timeDifferential int) []byte{
 func GetBits(height int64) []byte{
 	var chain BlockChain
 	var pow ProofOfWork
-	lastBlock,err := chain.GetBlock(chain.GetLastHash())
-	Handle(err)
+	
+	
 	if height == 0{
-		return []byte{0x00000010}
+		return []byte{0x10,0xff,0xff,0xff}
 	}else if height % BLOCKSPERDAY == 0{
+		lastBlock,err := chain.GetBlock(chain.GetLastHash())
+		Handle(err)
 		return pow.NewBits(lastBlock.BH.Bits,int(GetTimeDifference()))
+		
 	}else{
+		lastBlock,err := chain.GetBlock(chain.GetLastHash())
+		Handle(err)
 		return lastBlock.BH.Bits
+		
 	}
 }
 
@@ -65,7 +71,7 @@ func TargetToBits(target *big.Int) []byte{
 		exponent = len(rawBytes)
 		coefficient = rawBytes[:3]
 	}
-	newBits := append(utils.ToLittleEndian(coefficient,len(coefficient)), byte(exponent))
+	newBits := append(utils.ToLittleEndian(coefficient), byte(exponent))
 	return newBits
 }
 
@@ -99,13 +105,12 @@ func (pow *ProofOfWork) Run()(int){
 }
 
 func BitsToTarget(bits []byte) *big.Int{
-	var exponent int64
-	var coefficient int64
+	exponent := *big.NewInt(0)
+	coefficient := *big.NewInt(0)
+	exponent.SetBytes([]byte{bits[3]})
+	coefficient.SetBytes(utils.ToLittleEndian(bits[:3]))
 	
-	exponent = int64(binary.BigEndian.Uint32([]byte{bits[4]}))
-	coefficient = int64(binary.BigEndian.Uint32(utils.ToLittleEndian(bits[:3],3)))
-	
-	return big.NewInt(0).Mul(big.NewInt(coefficient),big.NewInt(0).Exp(big.NewInt(256),big.NewInt(exponent-3),nil))
+	return big.NewInt(0).Mul(&coefficient,big.NewInt(0).Exp(big.NewInt(256),big.NewInt(0).Sub(&exponent,big.NewInt(3)),nil))
 }
 
 func  GetTimeDifference() (int64){

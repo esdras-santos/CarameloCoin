@@ -40,19 +40,19 @@ func (gh GetHeadersMessage) GetCommand() []byte{
 }
 
 func (gh GetHeadersMessage) Serialize() []byte {
-	result := utils.ToLittleEndian(gh.SenderIp,4) 
-	result = append(result, utils.ToLittleEndian(gh.Version,4)...)
+	result := utils.ToLittleEndian(gh.SenderIp) 
+	result = append(result, utils.ToLittleEndian(gh.Version)...)
 	result = append(result, gh.NumberOfHashs...)
-	result = append(result, utils.ToLittleEndian(gh.StartingBlock,32)...)
-	result = append(result, utils.ToLittleEndian(gh.EndingBlock,32)...)
+	result = append(result, utils.ToLittleEndian(gh.StartingBlock)...)
+	result = append(result, utils.ToLittleEndian(gh.EndingBlock)...)
 	return result
 }
 
 func (gh *GetHeadersMessage) Parse(data []byte){
-	senderIp := utils.ToLittleEndian(data[:4],4)
-	version := utils.ToLittleEndian(data[4:8],4)
+	senderIp := utils.ToLittleEndian(data[:4])
+	version := utils.ToLittleEndian(data[4:8])
 	numHash := data[8:9]
-	sb := utils.ToLittleEndian(data[9:41],32)
-	eb := utils.ToLittleEndian(data[41:73],32)
+	sb := utils.ToLittleEndian(data[9:41])
+	eb := utils.ToLittleEndian(data[41:73])
 	gh.Init(senderIp,version,numHash,sb,eb)
 }

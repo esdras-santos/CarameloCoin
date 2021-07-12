@@ -24,7 +24,7 @@ func (ne *NetworkEnvelope) Parse(s []byte) *NetworkEnvelope {
 		log.Panic("magic is not right")
 	}
 	command := s[4:16]
-	payloadLength := binary.LittleEndian.Uint16(utils.ToLittleEndian(s[16:20], 4))
+	payloadLength := binary.LittleEndian.Uint16(utils.ToLittleEndian(s[16:20]))
 	checksum := s[20:24]
 	payload := s[24 : 24+payloadLength]
 	payloadHash := sha256.Sum256(payload)
@@ -39,7 +39,7 @@ func (ne *NetworkEnvelope) Parse(s []byte) *NetworkEnvelope {
 func (ne *NetworkEnvelope) Serialize() []byte {
 	result := ne.NetworkMagic
 	result = append(result, command(ne.Command)...)
-	result = append(result, utils.ToLittleEndian(utils.ToHex(int64(len(ne.Payload))), 4)...)
+	result = append(result, utils.ToLittleEndian(utils.ToHex(int64(len(ne.Payload))))...)
 	checksum := sha256.Sum256(ne.Payload)
 	result = append(result, checksum[:4]...)
 	result = append(result, ne.Payload...)

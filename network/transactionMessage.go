@@ -19,7 +19,7 @@ func (tm *TransactionMessage) Init(fromIp []byte,tx *blockchain.Transaction){
 }
 
 func (tm TransactionMessage) Serialize() []byte{
-	result := utils.ToLittleEndian(tm.FromIp,4)
+	result := utils.ToLittleEndian(tm.FromIp)
 	result = append(result, tm.Transaction.Serialize()...)
 	return result
 }
@@ -30,6 +30,6 @@ func (tm TransactionMessage) GetCommand() []byte{
 
 func (tm *TransactionMessage) Parse(data []byte) {
 	var tx blockchain.Transaction
-	tm.FromIp = utils.ToLittleEndian(data[:4],4)
+	tm.FromIp = utils.ToLittleEndian(data[:4])
 	tm.Transaction = tx.Parse(data[4:])
 }

@@ -10,9 +10,9 @@ import (
 )
 
 
-func ToLittleEndian(bytes []byte, length int) []byte {
-	le := make([]byte, length)
-	for i := len(le) - 1; i >= 0; i-- {
+func ToLittleEndian(bytes []byte) []byte {
+	le := []byte{}
+	for i := len(bytes)-1 ; i >= 0; i-- {
 		if bytes[i] != 0x00 {
 			le = append(le, bytes[i])
 		}
@@ -40,7 +40,7 @@ func ReadVarint(s []byte, buf *int){
 func EncodeVarint(i int64, buf *[]byte) {
 	var bignum, ok = new(big.Int).SetString("0x10000000000000000", 0)
 	ibytes := ToHex(i)
-	lebytes := ToLittleEndian(ibytes, len(ibytes))
+	lebytes := ToLittleEndian(ibytes)
 	if !ok {
 		log.Panic("fails to create the big number")
 	}

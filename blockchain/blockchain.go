@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	dbPath      = "./tmp/blocks"
 	genesisData = "First Transaction from Genesis"
 )
 
@@ -215,7 +214,7 @@ func DBexists(path string) bool {
 	return true
 }
 
-func InitBlockChain(w *wallet.Wallet) *BlockChain {
+func InitBlockChain(w *wallet.Wallet,dbPath string) *BlockChain {
 	
 
 	if DBexists(dbPath) {
@@ -249,7 +248,7 @@ func InitBlockChain(w *wallet.Wallet) *BlockChain {
 	return &blockchain
 }
 
-func ContinueBlockChain() *BlockChain {
+func ContinueBlockChain(dbPath string) *BlockChain {
 	if DBexists(dbPath) == false {
 		fmt.Println("No existing blockchain found, create one!")
 		runtime.Goexit()

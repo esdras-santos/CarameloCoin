@@ -39,7 +39,7 @@ func (tx *Transaction) Id() []byte{
 }
 
 func (tx Transaction) Serialize() []byte {
-	result := utils.ToLittleEndian(tx.Version,4)
+	result := utils.ToLittleEndian(tx.Version)
 	
 	lenIns := int64(len(tx.Inputs))
 	var lenInsEnc []byte
@@ -56,7 +56,7 @@ func (tx Transaction) Serialize() []byte {
 	for i := 0; i < len(tx.Outputs);i++{
 		result = append(result, tx.Outputs[i].Serialize()...)
 	}
-	result = append(result, utils.ToLittleEndian(tx.Locktime,4)...)
+	result = append(result, utils.ToLittleEndian(tx.Locktime)...)
 	return result
 }
 
@@ -74,7 +74,7 @@ func (tx *Transaction) Parse(data []byte) *Transaction {
 		startIn = 8
 	}
 	
-	txn.Version = utils.ToLittleEndian(data[:5],4)
+	txn.Version = utils.ToLittleEndian(data[:5])
 	
 	for i := 0;i<int(lenIn);i++{
 		data, len := DeserializeInput(data[startIn:])
@@ -98,7 +98,7 @@ func (tx *Transaction) Parse(data []byte) *Transaction {
 		startOut += int(len)
 	}
 
-	txn.Locktime = utils.ToLittleEndian(data[startOut:],4)
+	txn.Locktime = utils.ToLittleEndian(data[startOut:])
 
 
 	return &txn

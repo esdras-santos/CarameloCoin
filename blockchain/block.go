@@ -38,7 +38,8 @@ func AddBlockHeight(){
 func (b *Block) HashTransactions() []byte{
 	var txHashes [][]byte
 	for _,tx := range b.Transactions{
-		txHashes = append(txHashes,tx.Serialize())
+		txb := tx.Serialize()
+		txHashes = append(txHashes,txb)
 	}
 	tree := NewMerkleTree(txHashes)
 
@@ -48,8 +49,10 @@ func (b *Block) HashTransactions() []byte{
 func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
 	
 	block := Block{Height: utils.ToHex(height),Transactions: txs}
+	ht := block.HashTransactions()
+	bits := GetBits(height)
 	//currentTarget() must return the current target of the network and check if the difficult has changed
-	blockheader := &BlockHeader{[]byte{0x00000001},prevHash,block.HashTransactions(),utils.ToHex(time.Now().Unix()),GetBits(height),[]byte{0x00000000}}
+	blockheader := &BlockHeader{[]byte{0x00000001},prevHash, ht,utils.ToHex(time.Now().Unix()),bits,[]byte{0x00000000}}
 	block.BH = *blockheader
 	
 	pow := NewProof(&block)
@@ -109,20 +112,20 @@ func (b *Block) Serialize() []byte{
 }
 
 func (b *BlockHeader) Parse(s []byte) BlockHeader {
-	version := utils.ToLittleEndian(s[:4],4)
-	prevBlock := utils.ToLittleEndian(s[5:36],32)
-	merkleRoot := utils.ToLittleEndian(s[37:68],32)
-	timeStamp := utils.ToLittleEndian(s[69:72],4)
+	version := utils.ToLittleEndian(s[:4])
+	prevBlock := utils.ToLittleEndian(s[5:36])
+	merkleRoot := utils.ToLittleEndian(s[37:68])
+	timeStamp := utils.ToLittleEndian(s[69:72])
 	bits := s[72:76]
 	nonce := s[76:80]
 	return BlockHeader{version,prevBlock,merkleRoot,timeStamp,bits,nonce}
 }
 
 func (b *BlockHeader) Serialize() []byte {
-	result := utils.ToLittleEndian(b.Version,4)
-	result = append(result, utils.ToLittleEndian(b.PrevBlock,32)...)
-	result = append(result, utils.ToLittleEndian(b.MerkleRoot,32)...)
-	result = append(result, utils.ToLittleEndian(b.TimeStamp,4)...)
+	result := utils.ToLittleEndian(b.Version)
+	result = append(result, utils.ToLittleEndian(b.PrevBlock)...)
+	result = append(result, utils.ToLittleEndian(b.MerkleRoot)...)
+	result = append(result, utils.ToLittleEndian(b.TimeStamp)...)
 	result = append(result, b.Bits...)
 	result = append(result, b.Nonce...)
 	return result
@@ -132,18 +135,18 @@ func (b *BlockHeader) Serialize() []byte {
 func (b *BlockHeader) Hash() []byte{
 	s := b.Serialize()
 	sha := sha256.Sum256(s)
-	return utils.ToLittleEndian(sha[:],32)
+	return utils.ToLittleEndian(sha[:])
 }
 
 func NewProof(b *Block) *ProofOfWork{
-	var pow *ProofOfWork
+	pow := ProofOfWork{}
 	//check if is the end of the 1 day period
 	// if GetBlockHeight() % 8640 == 0{
 	// 	b.BH.Bits = pow.NewBits()
 	// }
 	pow.Block = b
 
-	return pow
+	return &pow
 }
 
 func (b *BlockHeader) Difficulty() *big.Int{

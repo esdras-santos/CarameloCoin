@@ -23,10 +23,10 @@ func (in *TxInput) NewInput(prevTx,prevIndex,scriptSig,sequence []byte) {
 	in.Sequence = sequence
 }
 func (in TxInput) Serialize() []byte{
-	result := utils.ToLittleEndian(in.PrevTxID,32)
-	result = append(result, utils.ToLittleEndian([]byte{byte(in.Out)},4)...)
+	result := utils.ToLittleEndian(in.PrevTxID)
+	result = append(result, utils.ToLittleEndian([]byte{byte(in.Out)})...)
 	result = append(result, in.ScriptSig...)
-	result = append(result, utils.ToLittleEndian(in.Sequence,4)...)
+	result = append(result, utils.ToLittleEndian(in.Sequence)...)
 	
 	return result
 }
@@ -50,10 +50,10 @@ func (in TxInput) ScriptpubKey() []byte{
 func DeserializeInput(data []byte) (TxInput,int){
 	var txin TxInput
 	var lensc uint
-	txin.PrevTxID = utils.ToLittleEndian(data[:33],32)
-	txin.Out = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[33:37],4)))
+	txin.PrevTxID = utils.ToLittleEndian(data[:33])
+	txin.Out = uint(binary.BigEndian.Uint64(utils.ToLittleEndian(data[33:37])))
 	txin.ScriptSig = data[37:]
-	txin.Sequence = utils.ToLittleEndian(data[lensc+33 : lensc+37],4)
+	txin.Sequence = utils.ToLittleEndian(data[lensc+33 : lensc+37])
 	return txin,len(data)
 }
 
@@ -63,7 +63,7 @@ type TxOutput struct{
 }
 func (out TxOutput) Serialize()[]byte{
 	amount := out.Amount
-	result := utils.ToLittleEndian([]byte{byte(amount)},8)
+	result := utils.ToLittleEndian([]byte{byte(amount)})
 	result = append(result, byte(len(out.ScriptPubKey)))
 	result = append(result, out.ScriptPubKey...)
 

@@ -21,12 +21,12 @@ func (gb GetBlockMessage) GetCommand() []byte{
 }
 
 func (gb GetBlockMessage) Serialize() []byte{
-	result := utils.ToLittleEndian(gb.SenderIp,4)
+	result := utils.ToLittleEndian(gb.SenderIp)
 	return result
 }
 
 func (gb *GetBlockMessage) Parse(data []byte){
-	sip := utils.ToLittleEndian(data,4)
+	sip := utils.ToLittleEndian(data)
 	gb.Init(sip)
 }
 
