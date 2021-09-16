@@ -134,10 +134,10 @@ func (src *Script) Serialize() []byte{
 				result = append([]byte{byte(length)},result...)
 			}else if length > 75 && length < 0x100{
 				result = append(result, 76)
-				result = append(utils.ToLittleEndian([]byte{byte(length)},1),result...)
+				result = append(utils.ToLittleEndian([]byte{byte(length)}),result...)
 			}else if length >= 0x100 && length <= 520{
 				result = append(result, 77)
-				result = append(utils.ToLittleEndian([]byte{byte(length)},2),result...)
+				result = append(utils.ToLittleEndian([]byte{byte(length)}),result...)
 			}else{
 				log.Panic("too long an Cmd")
 			}

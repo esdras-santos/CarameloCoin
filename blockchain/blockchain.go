@@ -4,7 +4,7 @@ import (
 	"bytes"
 
 	"encoding/binary"
-	"encoding/hex"
+	
 	"errors"
 	"fmt"
 	"gochain/wallet"
@@ -18,14 +18,16 @@ import (
 )
 
 const (
-	dbPath      = "./tmp/blocks_%s"
 	genesisData = "First Transaction from Genesis"
 )
 
 type BlockChain struct {
 	LastHash []byte
 	Database *badger.DB
+	Acc *Account
+	
 }
+
 
 func (chain *BlockChain) AddBlock(block *Block){
 	var lastBlock Block
@@ -53,7 +55,7 @@ func (chain *BlockChain) AddBlock(block *Block){
 			Handle(err)
 			chain.LastHash = block.BH.Hash()
 		}
-
+		chain.Acc.UpdateBalances(*block)
 		return nil
 	})
 	Handle(err)
@@ -143,6 +145,27 @@ func (chain *BlockChain) GetBestHeight() int64{
 	return int64(binary.BigEndian.Uint64(lastBlock.Height))
 }
 
+func (chain *BlockChain) GetLastHash() []byte{
+	
+	var lastBlock Block
+
+	err := chain.Database.View(func(txn *badger.Txn) error{
+		item, err := txn.Get([]byte("lh"))
+		Handle(err)
+		lastHash,_ := item.Value()
+
+		item, err = txn.Get(lastHash)
+		Handle(err)
+		lastBlockData,_ := item.Value()
+
+		lastBlock.Parse(lastBlockData)
+
+		return nil
+	})
+	Handle(err)
+	return lastBlock.BH.Hash()
+}
+
 func (chain *BlockChain) MineBlock(transactions []*Transaction) *Block{
 	var lastHash []byte
 	var lastHeight int64
@@ -194,20 +217,20 @@ func DBexists(path string) bool {
 	return true
 }
 
-func InitBlockChain(w *wallet.Wallet,nodeId string) *BlockChain {
-	path := fmt.Sprintf(dbPath,nodeId)
+func InitBlockChain(w *wallet.Wallet,dbPath string) *BlockChain {
+	
 
-	if DBexists(path) {
+	if DBexists(dbPath) {
 		fmt.Println("Blockchain already exists")
 		runtime.Goexit()
 	}
 
 	var lastHash []byte
 	opts := badger.DefaultOptions
-	opts.Dir = path
-	opts.ValueDir = path
+	opts.Dir = dbPath
+	opts.ValueDir = dbPath
 
-	db, err := openDB(path,opts)
+	db, err := openDB(dbPath,opts)
 	Handle(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
@@ -223,14 +246,14 @@ func InitBlockChain(w *wallet.Wallet,nodeId string) *BlockChain {
 		return err
 	})
 	Handle(err)
+	acc := InitAccounts(string(w.Address()))
 
-	blockchain := BlockChain{lastHash, db}
+	blockchain := BlockChain{lastHash, db, acc}
 	return &blockchain
 }
 
-func ContinueBlockChain(nodeId string) *BlockChain {
-	path := fmt.Sprintf(dbPath,nodeId)
-	if DBexists(path) == false {
+func ContinueBlockChain(dbPath string) *BlockChain {
+	if DBexists(dbPath) == false {
 		fmt.Println("No existing blockchain found, create one!")
 		runtime.Goexit()
 	}
@@ -238,10 +261,10 @@ func ContinueBlockChain(nodeId string) *BlockChain {
 	var lastHash []byte
 
 	opts := badger.DefaultOptions
-	opts.Dir = path
-	opts.ValueDir = path
+	opts.Dir = dbPath
+	opts.ValueDir = dbPath
 
-	db, err := openDB(path,opts)
+	db, err := openDB(dbPath,opts)
 	Handle(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
@@ -251,51 +274,52 @@ func ContinueBlockChain(nodeId string) *BlockChain {
 		return err
 	})
 	Handle(err)
-	chain := BlockChain{lastHash, db}
+	acc := GetAccounts()
+	chain := BlockChain{lastHash, db, acc}
 	return &chain
 }
 
 
 
-func (chain *BlockChain) FindUTXO() map[string][]TxOutput{
-	UTXO := make(map[string][]TxOutput)
-	spentTXOs := make(map[string][]int)
+// func (chain *BlockChain) FindUTXO() map[string][]TxOutput{
+// 	UTXO := make(map[string][]TxOutput)
+// 	spentTXOs := make(map[string][]int)
 
-	iter := chain.Iterator()
+// 	iter := chain.Iterator()
 
-	for {
-		block := iter.Next()
+// 	for {
+// 		block := iter.Next()
 
-		for _,tx := range block.Transactions{
-			txID := hex.EncodeToString(tx.Id())
+// 		for _,tx := range block.Transactions{
+// 			txID := hex.EncodeToString(tx.Id())
 
-		Outputs:
-			for outIdx,out := range tx.Outputs{
-				if spentTXOs[txID] != nil{
-					for _,spentOut := range spentTXOs[txID]{
-						if spentOut == outIdx{
-							continue Outputs
-						}
-					}
-				}
-				outs := UTXO[txID]
-				outs = append(outs,out)
-				UTXO[txID] = outs
-			}
-			if tx.IsCoinbase() == false{
-				for _,in := range tx.Inputs{
-					inTxID := hex.EncodeToString(in.PrevTxID)
-					spentTXOs[inTxID] = append(spentTXOs[inTxID],int(in.Out))
-				}
-			}
-		}
-		if len(block.BH.PrevBlock) == 0{
-			break
-		}
-	}
+// 		Outputs:
+// 			for outIdx,out := range tx.Outputs{
+// 				if spentTXOs[txID] != nil{
+// 					for _,spentOut := range spentTXOs[txID]{
+// 						if spentOut == outIdx{
+// 							continue Outputs
+// 						}
+// 					}
+// 				}
+// 				outs := UTXO[txID]
+// 				outs = append(outs,out)
+// 				UTXO[txID] = outs
+// 			}
+// 			if tx.IsCoinbase() == false{
+// 				for _,in := range tx.Inputs{
+// 					inTxID := hex.EncodeToString(in.PrevTxID)
+// 					spentTXOs[inTxID] = append(spentTXOs[inTxID],int(in.Out))
+// 				}
+// 			}
+// 		}
+// 		if len(block.BH.PrevBlock) == 0{
+// 			break
+// 		}
+// 	}
 	
-	return UTXO
-}
+// 	return UTXO
+// }
 
 func (bc *BlockChain) FindTransaction(ID []byte) (*Transaction,error){
 	iter := bc.Iterator()	
@@ -315,31 +339,20 @@ func (bc *BlockChain) FindTransaction(ID []byte) (*Transaction,error){
 	return &Transaction{},errors.New("Transaction does not exist")
 }
 
-func (bc *BlockChain) SignTransaction(tx *Transaction,wallet *wallet.Wallet){
-	prevTXs := make(map[string]Transaction)
-	
-	for _,in := range tx.Inputs{
-		prevTX, err := bc.FindTransaction(in.PrevTxID)
-		Handle(err)
-		prevTXs[hex.EncodeToString(prevTX.Id())] = *prevTX
-	}
-	tx.Sign(wallet,prevTXs)
-}
+
 
 func (bc *BlockChain) VerifyTransaction(tx *Transaction) bool{
 	if tx.IsCoinbase(){
 		return true
 	}
 
-	prevTXs := make(map[string]Transaction)
-	
-	for _,in := range tx.Inputs{
-		prevTX, err := bc.FindTransaction(in.PrevTxID)
-		Handle(err)
-		prevTXs[hex.EncodeToString(prevTX.Id())] = *prevTX
+	if !wallet.VerifySignature(tx.Id(), tx.pubkey, tx.sig) {
+		return false
+	} else if bc.Acc.BalanceOf(wallet.PKHtoAddress(tx.pubkey)) < tx.Value{
+		return false
 	}
 
-	return tx.VerifyTransaction(prevTXs)
+	return true
 }
 
 func retry(dir string, originalOpts badger.Options) (*badger.DB,error){

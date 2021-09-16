@@ -46,7 +46,7 @@ func (vm *VersionMessage) Init(timestamp, receiverip, nonce, relay []byte) {
 	vm.SenderIp = AddressToBytes(NODEIP)
 	vm.SenderPort = []byte(PORT)
 	if nonce == nil {
-		vm.Nonce = utils.ToLittleEndian(utils.ToHex(int64(rand.Intn(int(math.Pow(2, 64))))), 8)
+		vm.Nonce = utils.ToLittleEndian(utils.ToHex(int64(rand.Intn(int(math.Pow(2, 64))))))
 	} else {
 		vm.Nonce = []byte{0x6e,0x6f,0x74,0x20,0x6d,0x65,0x21,0x21}
 	}
@@ -57,15 +57,15 @@ func (vm *VersionMessage) Init(timestamp, receiverip, nonce, relay []byte) {
 
 //will bug if the is IPv6
 func (vm *VersionMessage) Parse(data []byte) {
-	vm.Version = utils.ToLittleEndian(data[:4],4)
-	vm.Services = utils.ToLittleEndian(data[4:12],8)
-	vm.Timestamp = utils.ToLittleEndian(data[12:20],8)
-	vm.ReceiverServices = utils.ToLittleEndian(data[20:28],8)
+	vm.Version = utils.ToLittleEndian(data[:4])
+	vm.Services = utils.ToLittleEndian(data[4:12])
+	vm.Timestamp = utils.ToLittleEndian(data[12:20])
+	vm.ReceiverServices = utils.ToLittleEndian(data[20:28])
 	vm.ReceiverIP = data[40:44]
-	vm.ReceiverPort = utils.ToLittleEndian(data[44:46],2)
-	vm.SenderServices = utils.ToLittleEndian(data[46:54],8)
-	vm.SenderIp = utils.ToLittleEndian(data[66:70],4)
-	vm.SenderPort = utils.ToLittleEndian(data[70:72],2)
+	vm.ReceiverPort = utils.ToLittleEndian(data[44:46])
+	vm.SenderServices = utils.ToLittleEndian(data[46:54])
+	vm.SenderIp = utils.ToLittleEndian(data[66:70])
+	vm.SenderPort = utils.ToLittleEndian(data[70:72])
 	vm.Nonce = data[72:80]
 	var len int
 	utils.ReadVarint(data[80:],&len)
@@ -79,7 +79,7 @@ func (vm *VersionMessage) Parse(data []byte) {
 	}
 	sl := startIn+len
 	vm.UserAgent = data[startIn:sl]
-	vm.LatestBlock = utils.ToLittleEndian(data[sl:sl+4],4)
+	vm.LatestBlock = utils.ToLittleEndian(data[sl:sl+4])
 	vm.Relay = data[sl+4:]
 }
 
@@ -88,23 +88,23 @@ func (vm VersionMessage) GetCommand() []byte{
 }
 
 func (vm VersionMessage) Serialize() []byte {
-	result := utils.ToLittleEndian(vm.Version, 4)
-	result = append(result, utils.ToLittleEndian(vm.Services, 8)...)
-	result = append(result, utils.ToLittleEndian(vm.Timestamp, 8)...)
-	result = append(result, utils.ToLittleEndian(vm.ReceiverServices, 8)...)
+	result := utils.ToLittleEndian(vm.Version)
+	result = append(result, utils.ToLittleEndian(vm.Services)...)
+	result = append(result, utils.ToLittleEndian(vm.Timestamp)...)
+	result = append(result, utils.ToLittleEndian(vm.ReceiverServices)...)
 	result = append(result, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff}...)
 	result = append(result, vm.ReceiverIP...)
-	result = append(result, utils.ToLittleEndian(vm.ReceiverPort, 2)...)
-	result = append(result, utils.ToLittleEndian(vm.SenderServices, 8)...)
+	result = append(result, utils.ToLittleEndian(vm.ReceiverPort)...)
+	result = append(result, utils.ToLittleEndian(vm.SenderServices)...)
 	result = append(result, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff}...)
 	result = append(result, vm.SenderIp...)
-	result = append(result, utils.ToLittleEndian(vm.SenderPort, 2)...)
+	result = append(result, utils.ToLittleEndian(vm.SenderPort)...)
 	result = append(result, vm.Nonce...)
 	buf := []byte{}
 	utils.EncodeVarint(int64(len(vm.UserAgent)), &buf)
 	result = append(result, buf...)
 	result = append(result, vm.UserAgent...)
-	result = append(result, utils.ToLittleEndian(vm.LatestBlock, 4)...)
+	result = append(result, utils.ToLittleEndian(vm.LatestBlock)...)
 	result = append(result, vm.Relay...)
 	return result
 }

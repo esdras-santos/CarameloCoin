@@ -71,15 +71,18 @@ type Tx struct{
 	Transaction []byte
 }
 
-func StartServer(nodeID string){
-	nodeAddress := fmt.Sprintf("%s:%s",NODEIP,PORT)
+func StartServer(){
+	nodeAddress := fmt.Sprintf("127.0.0.1:%s",PORT)
+	
 	ln, err := net.Listen(PROTOCOL, nodeAddress)
 	if err != nil{
 		log.Panic(err)
 	}
 	defer ln.Close()
-
-	chain := blockchain.ContinueBlockChain(nodeID)
+	
+	println("breaking point")
+	chain := blockchain.ContinueBlockChain("./tmp/blocks")
+	
 	defer chain.Database.Close()
 	go CloseDB(chain)
 

@@ -2,13 +2,19 @@ package wallet
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/gob"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"math/big"
+	"os"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -16,6 +22,7 @@ import (
 const(
 	checksumLength = 4
 	version = byte(0x00)
+	//walletFile = "./tmp/wallet.data"
 )
 
 type Wallet struct{
@@ -24,7 +31,7 @@ type Wallet struct{
 }
 
 func (w Wallet) Address() []byte{
-	pubHash := PublicKeyHash(w.PublicKey)
+	pubHash := w.PublicKeyHash()
 	versionedHash := append([]byte{version},pubHash...)
 	checksum := CheckSum(versionedHash)
 	fullHash := append(versionedHash,checksum...)
@@ -38,6 +45,24 @@ func AddressToPKH(address string) []byte{
 	return pubKeyHash
 }
 
+func PktoPKH(pubkey []byte) []byte{
+	pubHash := sha256.Sum256(pubkey)
+	
+	hasher := ripemd160.New()
+	_,err := hasher.Write(pubHash[:])
+	Handle(err)
+	publicRipMD := hasher.Sum(nil)
+	return publicRipMD
+}
+
+func PKHtoAddress(pkh []byte) string{
+	versionedHash := append([]byte{version},pkh...)
+	checksum := CheckSum(versionedHash)
+	fullHash := append(versionedHash,checksum...)
+	address := Base58Encode(fullHash)
+	return string(address)
+}
+
 func ValidateAddress(address string) bool{
 	pubKeyHash := Base58Decode([]byte(address))
 	actualChecksum := pubKeyHash[len(pubKeyHash)-checksumLength:]
@@ -47,7 +72,7 @@ func ValidateAddress(address string) bool{
 	return bytes.Compare(actualChecksum,targetChecksum) == 0
 }
 
-func NewKeyPair(compressed bool) (ecdsa.PrivateKey,[]byte){
+func NewKeyPair() (ecdsa.PrivateKey,[]byte){
 	curve := elliptic.P256()
 	private, err := ecdsa.GenerateKey(curve,rand.Reader)
 	Handle(err)
@@ -61,13 +86,13 @@ func NewKeyPair(compressed bool) (ecdsa.PrivateKey,[]byte){
 
 
 func MakeWallet() *Wallet{
-	private,public := NewKeyPair(true)
+	private,public := NewKeyPair()
 	wallet := Wallet{private,public}
 	return &wallet
 }
 
-func PublicKeyHash(pubKey []byte) []byte{
-	pubHash := sha256.Sum256(pubKey)
+func (w *Wallet) PublicKeyHash() []byte{
+	pubHash := sha256.Sum256(w.PublicKey)
 	
 	hasher := ripemd160.New()
 	_,err := hasher.Write(pubHash[:])
@@ -76,11 +101,12 @@ func PublicKeyHash(pubKey []byte) []byte{
 	return publicRipMD
 }
 
+
 /*before you pass the argument "transaction" you have to convert the Transaction struct 
 to string like that "dataToVerify := fmt.Sprintf("%x\n", transaction)" and then cast 
 to array of bytes and pass as argument like that "script.Script.Evaluate([]byte(dataToVerify))"
 */
-func VerifySignature(transaction ,pubkey, sig []byte) bool{
+func VerifySignature(txid ,pubkey, sig []byte) bool{
 	curve := elliptic.P256()
 
 	r := big.Int{}
@@ -96,10 +122,10 @@ func VerifySignature(transaction ,pubkey, sig []byte) bool{
 	x.SetBytes(pubkey[:(keyLen / 2)])
 	y.SetBytes(pubkey[(keyLen / 2):])
 
-	dataToVerify := fmt.Sprintf("%x\n", transaction)
+	
 
 	rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
-	if ecdsa.Verify(&rawPubKey, []byte(dataToVerify), &r, &s) == false {
+	if ecdsa.Verify(&rawPubKey, txid, &r, &s) == false {
 		return false
 	}
 	return true
@@ -111,6 +137,107 @@ func CheckSum(payload []byte) []byte{
 	secondHash := sha256.Sum256(firstHash[:])
 
 	return secondHash[:checksumLength]
+}
+
+func (w *Wallet) LoadFile(password string,walletFile string) error{
+	if _,err := os.Stat(walletFile);os.IsNotExist(err){
+		return err
+	}
+
+	
+
+	fileContent, err := ioutil.ReadFile(walletFile)
+	Handle(err)
+	fileContent = decrypt(keyAdjust(password),fileContent)
+	gob.Register(elliptic.P256())
+	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
+	err = decoder.Decode(w)
+	Handle(err)
+	
+
+	return nil
+}
+
+func (w *Wallet) SaveFile(password string,walletFile string) {
+	var content bytes.Buffer
+
+	gob.Register(elliptic.P256())
+	encoder := gob.NewEncoder(&content)
+	err := encoder.Encode(w)
+	Handle(err)
+	
+
+	err = ioutil.WriteFile(walletFile,encrypt(keyAdjust(password),content.Bytes()),0644)
+	Handle(err)
+}
+
+func keyAdjust(password string) []byte{
+	key := []byte(password)
+	if len(key) < 16{
+		for i := len(key);i<16;i++{
+			key = append(key, 0x00)
+		}
+	}else if len(key) < 24{
+		for i := len(key);i<24;i++{
+			key = append(key, 0x00)
+		}
+	}else if len(key) < 32{
+		for i := len(key);i<32;i++{
+			key = append(key, 0x00)
+		}
+	}
+	return key
+}
+
+//encrypt the wallet
+func encrypt(key []byte,data []byte) []byte{
+
+
+    // generate a new aes cipher using our 32 byte long key
+    c, err := aes.NewCipher(key)
+    Handle(err)
+
+    // gcm or Galois/Counter Mode, is a mode of operation
+    // for symmetric key cryptographic block ciphers
+    // - https://en.wikipedia.org/wiki/Galois/Counter_Mode
+    gcm, err := cipher.NewGCM(c)
+    // if any error generating new GCM
+    // handle them
+    Handle(err)
+
+    // creates a new byte array the size of the nonce
+    // which must be passed to Seal
+    nonce := make([]byte, gcm.NonceSize())
+    // populates our nonce with a cryptographically secure
+    // random sequence
+    if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+        fmt.Println(err)
+    }
+
+    
+    return gcm.Seal(nonce, nonce, data, nil)
+
+	
+}
+
+//decrypt the wallet
+func decrypt(key []byte,data []byte) []byte{    
+
+    c, err := aes.NewCipher(key)
+    Handle(err)
+
+    gcm, err := cipher.NewGCM(c)
+    Handle(err)
+
+    nonceSize := gcm.NonceSize()
+    if len(data) < nonceSize {
+        fmt.Println(err)
+    }
+
+    nonce, ciphertext := data[:nonceSize], data[nonceSize:]
+    plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+    Handle(err)
+    return plaintext
 }
 
 func Handle(err error){
