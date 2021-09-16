@@ -41,11 +41,13 @@ func (tx *Transaction) Id() []byte{
 }
 
 func (tx Transaction) Serialize() []byte {
+
 	b := bytes.Buffer{}
     e := gob.NewEncoder(&b)
     err := e.Encode(tx)
 	Handle(err)
     return b.Bytes()
+
 }
 
 func (tx *Transaction) Parse(data []byte) *Transaction {
