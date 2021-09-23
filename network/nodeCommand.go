@@ -37,6 +37,12 @@ func (nm *NodeCommand) SendTransaction(tx blockchain.Transaction){
 	SendData(*nm.hostAddress,message)
 }
 
+func (nm *NodeCommand) Mined(tx blockchain.Transaction){
+	var message MinedMessage
+	message.Init(AddressToBytes(NODEIP),&tx)
+	SendData(*nm.hostAddress,message)
+}
+
 //you can split the return of bestHeight function in different nodes with goroutines and pass that in numhash parameter
 func (nm *NodeCommand) GetHeaders(numhash, sb, eb []byte){
 	var message GetHeadersMessage

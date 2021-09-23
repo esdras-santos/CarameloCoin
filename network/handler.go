@@ -100,12 +100,9 @@ func NodeIsKnown(address string)bool{
 // 	}
 // }
 
-func HandleBlock(request []byte, chain *blockchain.BlockChain){
-	var block BlockMessage
-
- 	block.Parse(request[COMMANDLENGTH+4:])
-
-	chain.AddBlock(block.Block)
+func HandleBlock(block *blockchain.Block){
+	chain := blockchain.BlockchainInstance
+	chain.AddBlock(block)
 }
 
 
@@ -125,33 +122,6 @@ func HandleGetBlock(request []byte, chain *blockchain.BlockChain) {
 	}	
 }
 
-// func HandleGetData(request []byte, chain *blockchain.BlockChain) {
-// 	var buff bytes.Buffer
-// 	var payload GetData
-
-// 	buff.Write(request[commandLength:])
-// 	dec := gob.NewDecoder(&buff)
-// 	err := dec.Decode(&payload)
-// 	if err != nil {
-// 		log.Panic(err)
-// 	}
-
-// 	if payload.Type == "block" {
-// 		block, err := chain.GetBlock([]byte(payload.ID))
-// 		if err != nil {
-// 			return
-// 		}
-
-// 		SendBlock(payload.AddrFrom, &block)
-// 	}
-
-// 	if payload.Type == "tx" {
-// 		txID := hex.EncodeToString(payload.ID)
-// 		tx := memoryPool[txID]
-
-// 		SendTx(payload.AddrFrom, &tx)
-// 	}
-// }
 
 //request for headers
 //get all the hashs in the DB from the startBlock to the endBlock
@@ -178,52 +148,21 @@ func HandleHeaders(request []byte, chain *blockchain.BlockChain) {
 	
 }
 
-func HandleVersion(request []byte, chain *blockchain.BlockChain) {
-	var payload VersionMessage
 
-	payload.Parse(request[COMMANDLENGTH+4:])
-	var vam VerAckMessage
-	var vm VersionMessage
-	SendData(string(payload.SenderIp),vam)
-	SendData(string(payload.SenderIp),vm)
-	
-
-	if !NodeIsKnown(string(payload.SenderIp)) {
-		KNOWNNODES = append(KNOWNNODES, string(payload.SenderIp))
-	}
-}
-
-func HandleVerAck(request []byte){
-	var payload VersionMessage
-
-	payload.Parse(request[COMMANDLENGTH+4:])
-
-	//handshack maded
-	VERACKRECEIVED[string(payload.SenderIp)] = true
-}
-
-func HandleTx(request []byte, chain *blockchain.BlockChain) {
-	var payload TransactionMessage
-
-	payload.Parse(request[COMMANDLENGTH+4:])
-
-	tx := payload.Transaction
+func HandleTx(tx *blockchain.Transaction) {
 
 	MEMPOOL[hex.EncodeToString(tx.Id())] = *tx
 
 	fmt.Printf("%s, %d\n", NODEIP, len(MEMPOOL))
+}
 
-	// if NODEIP == KNOWNNODES[0] {
-	// 	for _, node := range KNOWNNODES {
-	// 		if node != NODEIP && node != AddressToString(payload.FromIp) {
-	// 			SendInv(node, "tx", [][]byte{tx.ID})
-	// 		}
-	// 	}
-	// } else {
-	// 	if len(memoryPool) >= 2 && len(minerAddress) > 0 {
-	// 		MineTx(chain)
-	// 	}
-	// }
+func HandleMined(tx *blockchain.Transaction){
+
+	_, ok := MEMPOOL[hex.EncodeToString(tx.Id())];
+    if ok {
+        delete(MEMPOOL, hex.EncodeToString(tx.Id()));
+    }
+	fmt.Printf("%s, %d\n", NODEIP, len(MEMPOOL))
 }
 
 func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
@@ -290,7 +229,13 @@ func HandleConnection(conn net.Conn, chain *blockchain.BlockChain) {
 	 		HandleTx(req, chain)
 	 	}else{
 	 		log.Panic("you don't made the handshake")
-	 	}		
+	 	}
+	case "mined":
+		if VERACKRECEIVED[connectedNode]{
+			HandleMined(req, chain)
+		}else{
+			log.Panic("you don't made the handshake")
+		}	 		
 	case "version":
 		HandleVersion(req, chain)
 	case "verack":

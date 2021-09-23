@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+
 	"gochain/utils"
 	"log"
 	"math/big"
@@ -47,16 +48,18 @@ func (b *Block) HashTransactions() []byte{
 	return tree.RootNode.Data
 }
 
-func CreateBlock(txs []*Transaction,prevHash []byte, height int64) *Block{
+func CreateBlock(txs []*Transaction,prevHash []byte, height uint64) *Block{
 	
-	block := Block{Height: utils.ToHex(height),Transactions: txs}
+	block := Block{Height: ToBytes(height),Transactions: txs}
 	ht := block.HashTransactions()
-	bits := GetBits(height)
+	
+	bits := GetBits(int64(height), prevHash)
 	//currentTarget() must return the current target of the network and check if the difficult has changed
 	blockheader := &BlockHeader{[]byte{0x00000001},prevHash, ht,utils.ToHex(time.Now().Unix()),bits,[]byte{0x00000000}}
 	block.BH = *blockheader
 	
 	pow := NewProof(&block)
+	
 	nonce := pow.Run()
 	block.BH.Nonce = utils.ToHex(int64(nonce))
 	return &block
@@ -69,14 +72,15 @@ func Genesis(coinbase *Transaction) *Block{
 }
 
 
-func (b *Block) Parse(s []byte) {
+func (b *Block) Parse(s []byte) *Block {
 	var block Block
     by := bytes.Buffer{}
     by.Write(s)
     d := gob.NewDecoder(&by)
     err := d.Decode(&block)
 	Handle(err)
-    b = &block
+
+    return &block
 }
 
 func (b *Block) Serialize() []byte{

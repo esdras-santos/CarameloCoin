@@ -105,7 +105,8 @@ func NewTransaction(from *wallet.Wallet, to string, amount uint64, chain *BlockC
 
 func (tx *Transaction) IsCoinbase() bool { 
 	if tx.nonce == 0{
-		if tx.pubkey == nil{
+		
+		if bytes.Equal(tx.pubkey,[]byte{0x0000000000000000000000000000000000000001}){
 			if bytes.Equal(tx.sig, []byte{0x00000001}){
 				return true
 			}

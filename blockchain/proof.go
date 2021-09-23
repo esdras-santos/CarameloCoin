@@ -40,20 +40,22 @@ func (pow *ProofOfWork) NewBits(prevBits []byte, timeDifferential int) []byte{
 	return TargetToBits(newTarget)
 }
 
-func GetBits(height int64) []byte{
-	var chain BlockChain
+func GetBits(height int64, lastHash []byte) []byte{
 	var pow ProofOfWork
-	
+	//make blockchain a singleton
+	chain := BlockchainInstance
 	
 	if height == 0{
 		return []byte{0x10,0xff,0xff,0xff}
 	}else if height % BLOCKSPERDAY == 0{
-		lastBlock,err := chain.GetBlock(chain.GetLastHash())
+		lastBlock,err := chain.GetBlock(lastHash)
 		Handle(err)
+		
 		return pow.NewBits(lastBlock.BH.Bits,int(GetTimeDifference()))
 		
 	}else{
-		lastBlock,err := chain.GetBlock(chain.GetLastHash())
+		
+		lastBlock,err := chain.GetBlock(lastHash)
 		Handle(err)
 		return lastBlock.BH.Bits
 		

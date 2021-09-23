@@ -28,8 +28,8 @@ func (tm TransactionMessage) GetCommand() []byte{
 	return tm.Command
 }
 
-func (tm *TransactionMessage) Parse(data []byte) {
+func (tm *TransactionMessage) Parse(data []byte) *blockchain.Transaction {
 	var tx blockchain.Transaction
 	tm.FromIp = utils.ToLittleEndian(data[:4])
-	tm.Transaction = tx.Parse(data[4:])
+	return tx.Parse(data[4:])
 }

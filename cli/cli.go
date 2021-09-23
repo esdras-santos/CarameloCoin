@@ -2,10 +2,14 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"gochain/blockchain"
 	"gochain/network"
+
+	"github.com/libp2p/go-libp2p"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 
 	"gochain/wallet"
 	"log"
@@ -54,7 +58,26 @@ func (cli *CommandLine) StartNode(){
 			log.Panic("Wrong miner address")
 		}
 	}
-	network.StartServer()
+	ctx := context.Background()
+	
+	h, err := libp2p.New(ctx,libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	Handle(err)
+
+	ps, err := pubsub.NewGossipSub(ctx, h)
+	Handle(err)
+
+	err = network.SetupDiscovery(ctx, h)
+	Handle(err)
+
+	nw, err := network.JoinNetwork(ctx, ps, h.ID())
+	Handle(err)
+
+}
+
+func Handle(err error){
+	if err != nil {
+		panic(err)
+	}
 }
 
 // func (cli *CommandLine) reindexUTXO(){
@@ -225,6 +248,15 @@ func (cli *CommandLine) send(to string, amount uint64, mineNow bool){
 
 
 	tx := blockchain.NewTransaction(wFrom, to, amount, chain)
+	var nc network.NodeCommand
+	//send the transaction to the mempool of all your known nodes
+	go func(){
+		for i,_ := range network.KNOWNNODES{
+			nc.Init(network.KNOWNNODES[i])
+			nc.SendTransaction(*tx)
+		}
+		fmt.Println("Success!")
+	}()
 	if mineNow{
 		cbTx := blockchain.CoinbaseTx(wFrom)
 		for range network.MEMPOOL{
@@ -239,17 +271,9 @@ func (cli *CommandLine) send(to string, amount uint64, mineNow bool){
 
 		}
 		chain.MineBlock(txs)
+		//send message to all nodes for exclude the tx from your mempool because is already mined
+		
 		fmt.Println("Success!")
-	}else{
-		var nc network.NodeCommand
-		//send the transaction to the mempool of all your known nodes
-		go func(){
-			for i,_ := range network.KNOWNNODES{
-				nc.Init(network.KNOWNNODES[i])
-				nc.SendTransaction(*tx)
-			}
-			fmt.Println("Success!")
-		}()
 	}
 
 	

@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"gochain/wallet"
 
-	"github.com/dgraph-io/badger"
+	"dgraph-io/badger"
 )
 
 
@@ -42,31 +42,36 @@ func (acc *Account) UpdateBalances(b Block){
 		err = acc.BalanceDatabase.Update(func(txn *badger.Txn) error {
 			if (tx.IsCoinbase()){
 				rbalance = acc.BalanceOf(string(tx.receipent))
-				err = txn.Set(wallet.AddressToPKH(string(tx.receipent)), toBytes(rbalance + tx.Value))
+				err = txn.Set(wallet.AddressToPKH(string(tx.receipent)), ToBytes(rbalance + tx.Value))
 				Handle(err)
 			} else {
 				rbalance = acc.BalanceOf(string(tx.receipent))
-				err = txn.Set(wallet.AddressToPKH(string(tx.receipent)), toBytes(rbalance + tx.Value))
+				err = txn.Set(wallet.AddressToPKH(string(tx.receipent)), ToBytes(rbalance + tx.Value))
 				Handle(err)
 
 				sbalance = acc.BalanceOf(wallet.PKHtoAddress(wallet.PktoPKH(tx.pubkey)))
-				err = txn.Set(wallet.PktoPKH(tx.pubkey), toBytes(sbalance - tx.Value))
+				err = txn.Set(wallet.PktoPKH(tx.pubkey), ToBytes(sbalance - tx.Value))
 				Handle(err)
 			}
 			return err
 		})
 		Handle(err)
 		
-		err = acc.NonceDatabase.Update(func(txn *badger.Txn) error {
-			nonce = acc.NonceOf(wallet.PKHtoAddress(wallet.PktoPKH(tx.pubkey)))
-			
-			err = txn.Set(wallet.PktoPKH(tx.pubkey), toBytes(nonce + 1))
-			Handle(err)
-			return err
-		})
+		if (!tx.IsCoinbase()){
+			err = acc.NonceDatabase.Update(func(txn *badger.Txn) error {
+				nonce = acc.NonceOf(wallet.PKHtoAddress(wallet.PktoPKH(tx.pubkey)))
+				
+				err = txn.Set(wallet.PktoPKH(tx.pubkey), ToBytes(nonce + 1))
+				Handle(err)
+				return err
+			})
+		}
+		
 		Handle(err)
 		
 	}
+	acc.BalanceDatabase.Close()
+	acc.NonceDatabase.Close()
 }
 
 func (acc *Account) NonceOf(address string) uint64{
@@ -113,7 +118,7 @@ func InitAccounts(address string) *Account{
 	Handle(err)
 
 	err = bdb.Update(func(txn *badger.Txn) error {
-		err = txn.Set(wallet.AddressToPKH(address), toBytes(50))
+		err = txn.Set(wallet.AddressToPKH(address), ToBytes(50))
 		Handle(err)
 		return err
 	})
@@ -127,7 +132,7 @@ func InitAccounts(address string) *Account{
 	Handle(err)
 
 	err = ndb.Update(func(txn *badger.Txn) error {
-		err = txn.Set(wallet.AddressToPKH(address), toBytes(1))
+		err = txn.Set(wallet.AddressToPKH(address), ToBytes(1))
 		Handle(err)
 		return err
 	})
@@ -137,7 +142,7 @@ func InitAccounts(address string) *Account{
 	return &accounts
 }
 
-func toBytes(n uint64) []byte{
+func ToBytes(n uint64) []byte{
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, n)
 	return b

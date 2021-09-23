@@ -1,32 +1,29 @@
 package main
 
 import (
-<<<<<<< HEAD
-	
-	"gochain/cli"
-
-
-	"os"
-
-	
-=======
-	"gochain/cli"
-	
-	"os"
->>>>>>> c1e0728eff36113b0b666cff0177b11d826e429f
+	"fmt"
+	"time"
 )
+
+// 	"gochain/cli"
+
+// 	"os"
 
 
 
 func main(){
-	defer os.Exit(0) 
-	cmd := cli.CommandLine{}
-	cmd.Run()
-<<<<<<< HEAD
+	// defer os.Exit(0) 
+	// cmd := cli.CommandLine{}
+	// cmd.Run()
+	r := make(chan string,1)
 	
-=======
-
-
->>>>>>> c1e0728eff36113b0b666cff0177b11d826e429f
+	go func(){
+		fmt.Println(<-r)
+		fmt.Println("teste")
+	}()
+    fmt.Println("inicio")
+	time.Sleep(time.Second * 5)
+	r <- "meu pau"
+	time.Sleep(time.Second * 1)
 }	
 

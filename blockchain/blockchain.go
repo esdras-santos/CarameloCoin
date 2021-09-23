@@ -4,7 +4,6 @@ import (
 	"bytes"
 
 	"encoding/binary"
-	
 	"errors"
 	"fmt"
 	"gochain/wallet"
@@ -13,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/dgraph-io/badger"
 )
@@ -21,11 +21,23 @@ const (
 	genesisData = "First Transaction from Genesis"
 )
 
+var (
+	once sync.Once
+	BlockchainInstance BlockChain
+)
+
 type BlockChain struct {
 	LastHash []byte
 	Database *badger.DB
 	Acc *Account
 	
+}
+
+func GetBlockChainInstance(lastHash []byte, db *badger.DB, acc *Account) BlockChain{
+	once.Do(func(){
+			BlockchainInstance = BlockChain{lastHash,db,acc}
+	})
+	return BlockchainInstance
 }
 
 
@@ -64,24 +76,27 @@ func (chain *BlockChain) AddBlock(block *Block){
 
 
 func (chain *BlockChain) GetBlock(blockHash []byte) (Block, error){
-	var block Block
-
+	var block *Block
+	
 	err := chain.Database.View(func(txn *badger.Txn) error{
-		if item, err := txn.Get(blockHash); err != nil{
+		item, err := txn.Get(blockHash);
+		
+		if  err != nil{
 			return errors.New("Block is not found")
 		}else{
-			blockData,_ := item.Value()
-			block.Parse(blockData)
+			blockData,err := item.Value()
+			Handle(err)
+			block = block.Parse(blockData)
 		}
-
+	
 		return nil
 	})
 
 	if err != nil{
-		return block,err
+		return *block,err
 	}
-
-	return block, nil
+	print("returned")
+	return *block, nil
 }
 
 
@@ -125,7 +140,7 @@ func (chain *BlockChain) GetBlockHashes() [][]byte{
 	return blocks
 }
 
-func (chain *BlockChain) GetBestHeight() int64{
+func (chain *BlockChain) GetBestHeight() uint64{
 	var lastBlock Block
 
 	err := chain.Database.View(func(txn *badger.Txn) error{
@@ -142,59 +157,66 @@ func (chain *BlockChain) GetBestHeight() int64{
 		return nil
 	})
 	Handle(err)
-	return int64(binary.BigEndian.Uint64(lastBlock.Height))
+	return binary.BigEndian.Uint64(lastBlock.Height)
 }
 
 func (chain *BlockChain) GetLastHash() []byte{
+	var lastHash []byte
+	var lastBlock *Block
 	
-	var lastBlock Block
-
 	err := chain.Database.View(func(txn *badger.Txn) error{
 		item, err := txn.Get([]byte("lh"))
 		Handle(err)
-		lastHash,_ := item.Value()
 
+		lastHash,err = item.Value()
+		Handle(err)
+
+		
 		item, err = txn.Get(lastHash)
 		Handle(err)
 		lastBlockData,_ := item.Value()
 
-		lastBlock.Parse(lastBlockData)
+		lastBlock = lastBlock.Parse(lastBlockData)
 
 		return nil
 	})
 	Handle(err)
+	
 	return lastBlock.BH.Hash()
 }
 
 func (chain *BlockChain) MineBlock(transactions []*Transaction) *Block{
 	var lastHash []byte
-	var lastHeight int64
+	var lastHeight uint64
 
 	for _,tx := range transactions{
 		if chain.VerifyTransaction(tx) != true{
 			log.Panic("Invalid Transaction")
 		}
 	}
-
+	
 	err := chain.Database.View(func(txn *badger.Txn) error {
-		var lastBlock Block
+		var lastBlock *Block
 		item, err := txn.Get([]byte("lh"))
 		Handle(err)
 		lastHash, err = item.Value()
+		Handle(err)
 
 		item, err = txn.Get(lastHash)
 		Handle(err)
-		lastBlockData, _ := item.Value()
-
-		lastBlock.Parse(lastBlockData)
-
-		lastHeight = int64(binary.BigEndian.Uint64(lastBlock.Height))
-
+		lastBlockData, err := item.Value()
+		Handle(err)
+		
+		lastBlock = lastBlock.Parse(lastBlockData)
+		
+		lastHeight = binary.LittleEndian.Uint64(lastBlock.Height)
+		
 		return err
 	})
 	Handle(err)
-
+	
 	newBlock := CreateBlock(transactions, lastHash, lastHeight+1)
+	
 
 	err = chain.Database.Update(func(txn *badger.Txn) error {
 		//the blockheader hash will be linked to the block
@@ -206,6 +228,8 @@ func (chain *BlockChain) MineBlock(transactions []*Transaction) *Block{
 		return err
 	})
 	Handle(err)
+
+	chain.Acc.UpdateBalances(*newBlock)
 
 	return newBlock	
 }
@@ -275,7 +299,7 @@ func ContinueBlockChain(dbPath string) *BlockChain {
 	})
 	Handle(err)
 	acc := GetAccounts()
-	chain := BlockChain{lastHash, db, acc}
+	chain := GetBlockChainInstance(lastHash, db, acc)
 	return &chain
 }
 
@@ -343,12 +367,15 @@ func (bc *BlockChain) FindTransaction(ID []byte) (*Transaction,error){
 
 func (bc *BlockChain) VerifyTransaction(tx *Transaction) bool{
 	if tx.IsCoinbase(){
+
 		return true
 	}
 
 	if !wallet.VerifySignature(tx.Id(), tx.pubkey, tx.sig) {
+		
 		return false
 	} else if bc.Acc.BalanceOf(wallet.PKHtoAddress(tx.pubkey)) < tx.Value{
+		
 		return false
 	}
 

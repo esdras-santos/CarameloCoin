@@ -22,8 +22,9 @@ func (bm BlockMessage) Serialize() []byte{
 	return bm.Block.Serialize()
 }
 
-func (bm *BlockMessage) Parse(data []byte){
+func (bm *BlockMessage) Parse(data []byte) *blockchain.Block{
 	block := &blockchain.Block{}
 	block.Parse(data)
 	bm.Init(block)
+	return bm
 }
