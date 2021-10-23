@@ -1,0 +1,51 @@
+=============== Oct 14, 2021 (-03) ===============
+14:15:02.841476 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+14:15:02.859136 db@open opening
+14:15:02.873172 version@stat F·[] S·0B[] Sc·[]
+14:15:02.876617 db@janitor F·2 G·0
+14:15:02.876662 db@open done T·17.0152ms
+=============== Oct 16, 2021 (-03) ===============
+11:08:14.977062 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+11:08:15.234340 version@stat F·[] S·0B[] Sc·[]
+11:08:15.234970 db@open opening
+11:08:15.236477 journal@recovery F·1
+11:08:15.241179 journal@recovery recovering @1
+11:08:15.249428 version@stat F·[] S·0B[] Sc·[]
+11:08:15.289670 db@janitor F·2 G·0
+11:08:15.289670 db@open done T·54.7002ms
+=============== Oct 16, 2021 (-03) ===============
+11:09:31.322768 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+11:09:31.327763 version@stat F·[] S·0B[] Sc·[]
+11:09:31.327763 db@open opening
+11:09:31.328764 journal@recovery F·1
+11:09:31.337754 journal@recovery recovering @2
+11:09:31.346737 version@stat F·[] S·0B[] Sc·[]
+11:09:31.375127 db@janitor F·2 G·0
+11:09:31.375127 db@open done T·47.3636ms
+=============== Oct 16, 2021 (-03) ===============
+11:20:29.418256 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+11:20:29.422086 version@stat F·[] S·0B[] Sc·[]
+11:20:29.422633 db@open opening
+11:20:29.423719 journal@recovery F·1
+11:20:29.430303 journal@recovery recovering @4
+11:20:29.436913 version@stat F·[] S·0B[] Sc·[]
+11:20:29.463339 db@janitor F·2 G·0
+11:20:29.463374 db@open done T·40.7409ms
+=============== Oct 16, 2021 (-03) ===============
+11:58:05.849969 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+11:58:05.858985 version@stat F·[] S·0B[] Sc·[]
+11:58:05.858985 db@open opening
+11:58:05.860999 journal@recovery F·1
+11:58:05.860999 journal@recovery recovering @6
+11:58:05.878571 version@stat F·[] S·0B[] Sc·[]
+11:58:05.922129 db@janitor F·2 G·0
+11:58:05.922129 db@open done T·63.1439ms
+=============== Oct 16, 2021 (-03) ===============
+12:04:30.723622 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+12:04:30.734527 version@stat F·[] S·0B[] Sc·[]
+12:04:30.735527 db@open opening
+12:04:30.736922 journal@recovery F·1
+12:04:30.740437 journal@recovery recovering @8
+12:04:30.758601 version@stat F·[] S·0B[] Sc·[]
+12:04:30.793949 db@janitor F·2 G·0
+12:04:30.794961 db@open done T·59.4343ms

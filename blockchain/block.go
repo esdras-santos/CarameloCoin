@@ -4,26 +4,50 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"fmt"
+	"strings"
 
-	"gochain/utils"
+	
 	"log"
 	"math/big"
 	"time"
 )
 
-type BlockHeader struct{
+
+
+type Block struct{
+	//blockheader
 	Version []byte
 	PrevBlock []byte
 	MerkleRoot []byte
 	TimeStamp []byte
 	Bits []byte
 	Nonce []byte
+
+	Height []byte
+	
+	Transactions []*Transaction
 }
 
-type Block struct{
-	Height []byte
-	BH BlockHeader
-	Transactions []*Transaction
+
+
+func (b *Block) ToString() string {
+	var lines []string
+
+	lines = append(lines, fmt.Sprintf("     Version:     %d", b.Version))
+	lines = append(lines, fmt.Sprintf("          pb:     %x", b.PrevBlock))
+	lines = append(lines, fmt.Sprintf("          mr:     %x", b.MerkleRoot))
+	lines = append(lines, fmt.Sprintf("          ts:     %x", b.TimeStamp))
+	lines = append(lines, fmt.Sprintf("        bits:     %x", b.Bits))
+	lines = append(lines, fmt.Sprintf("       Nonce:     %x", b.Nonce))
+	lines = append(lines, fmt.Sprintf("           h:     %x", b.Height))
+	lines = append(lines, fmt.Sprintf("    tx nonce:     %d", b.Transactions[0].Nonce))
+	lines = append(lines, fmt.Sprintf("   tx pubkey:     %x", b.Transactions[0].Pubkey))
+	lines = append(lines, fmt.Sprintf("tx receipent:     %x", b.Transactions[0].Receipent))
+	lines = append(lines, fmt.Sprintf("      tx sig:     %x", b.Transactions[0].Sig))
+	lines = append(lines, fmt.Sprintf("    tx value:     %d", b.Transactions[0].Value))
+
+	return strings.Join(lines, "\n")
 }
 
 //get the current block height from the network
@@ -55,13 +79,19 @@ func CreateBlock(txs []*Transaction,prevHash []byte, height uint64) *Block{
 	
 	bits := GetBits(int64(height), prevHash)
 	//currentTarget() must return the current target of the network and check if the difficult has changed
-	blockheader := &BlockHeader{[]byte{0x00000001},prevHash, ht,utils.ToHex(time.Now().Unix()),bits,[]byte{0x00000000}}
-	block.BH = *blockheader
+	block.Version = []byte{0x00000001}
+	block.PrevBlock = prevHash
+	block.MerkleRoot = ht
+	block.TimeStamp = ToBytes(uint64(time.Now().Unix()))
+	block.Bits = bits
+	block.Nonce = []byte{0x00000000}
+
+	
 	
 	pow := NewProof(&block)
 	
 	nonce := pow.Run()
-	block.BH.Nonce = utils.ToHex(int64(nonce))
+	block.Nonce = ToBytes(uint64(nonce))
 	return &block
 }
 
@@ -91,29 +121,19 @@ func (b *Block) Serialize() []byte{
     return by.Bytes()
 }
 
-func (b *BlockHeader) Parse(s []byte) BlockHeader {
-	var bh BlockHeader
-    by := bytes.Buffer{}
-    by.Write(s)
-    d := gob.NewDecoder(&by)
-    err := d.Decode(&bh)
-	Handle(err)
-    return bh
-}
-
-func (b *BlockHeader) Serialize() []byte {
-	by := bytes.Buffer{}
-    e := gob.NewEncoder(&by)
-    err := e.Encode(b)
-	Handle(err)
-    return by.Bytes()
-}
-
 //return the hash of the block in little endian
-func (b *BlockHeader) Hash() []byte{
-	s := b.Serialize()
-	sha := sha256.Sum256(s)
-	return utils.ToLittleEndian(sha[:])
+func (b *Block) Hash() []byte{
+	var data []byte
+
+	data = append(data, b.Version...)
+	data = append(data, b.PrevBlock...)
+	data = append(data, b.MerkleRoot...)
+	data = append(data, b.Bits...)
+	data = append(data, b.Nonce...)
+	data = append(data, b.Height...)
+	
+	sha := sha256.Sum256(data)
+	return sha[:]
 }
 
 func NewProof(b *Block) *ProofOfWork{
@@ -127,7 +147,7 @@ func NewProof(b *Block) *ProofOfWork{
 	return &pow
 }
 
-func (b *BlockHeader) Difficulty() *big.Int{
+func (b *Block) Difficulty() *big.Int{
 	
 	lowest := big.NewInt(0).Mul(big.NewInt(int64(0xffff)),big.NewInt(0).Exp(big.NewInt(256),big.NewInt(0x1d-3),nil))
 	//lowest = 0xffff * int(math.Pow(256,(0x1d - 3)))
@@ -135,7 +155,7 @@ func (b *BlockHeader) Difficulty() *big.Int{
 	return big.NewInt(0).Div(lowest,b.Target()) 
 }
 
-func (b *BlockHeader) Target() *big.Int{
+func (b *Block) Target() *big.Int{
 	target := BitsToTarget(b.Bits)
 	return target
 }

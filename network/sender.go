@@ -1,21 +1,21 @@
 package network
 
 import (
-	"bytes"
-	"fmt"
-	//"gochain/blockchain"
-	//"gochain/utils"
-	"io"
-	"log"
-	"net"
+	// "bytes"
+	// "fmt"
+	// //"gochain/blockchain"
+	// //"gochain/utils"
+	// "io"
+	// "log"
+	// "net"
 )
 
 
 
-type Message interface{
-	GetCommand() []byte
-	Serialize() []byte
-}
+// type Message interface{
+// 	GetCommand() []byte
+// 	Serialize() []byte
+// }
 
 // func SendAddr(address string) {
 // 	nodes := Addr{KNOWNNODES}
@@ -93,29 +93,29 @@ type Message interface{
 // }
 
 
-func SendData(hostAddr string, message Message) {
-	envelope := NetworkEnvelope{NETWORK_MAGIC, message.GetCommand(), message.Serialize()}
-	host := fmt.Sprintf("%s:%s",hostAddr,PORT)
-	conn, err := net.Dial(PROTOCOL, host)
+// func SendData(hostAddr string, message Message) {
+// 	envelope := NetworkEnvelope{NETWORK_MAGIC, message.GetCommand(), message.Serialize()}
+// 	host := fmt.Sprintf("%s:%s",hostAddr,PORT)
+// 	conn, err := net.Dial(PROTOCOL, host)
 
-	if err != nil {
-		fmt.Printf("%s is not available\n", host)
-		var updatedNodes []string
+// 	if err != nil {
+// 		fmt.Printf("%s is not available\n", host)
+// 		var updatedNodes []string
 
-		for _, node := range KNOWNNODES {
-			if node != host {
-				updatedNodes = append(updatedNodes, node)
-			}
-		}
+// 		for _, node := range KNOWNNODES {
+// 			if node != host {
+// 				updatedNodes = append(updatedNodes, node)
+// 			}
+// 		}
 
-		KNOWNNODES = updatedNodes
+// 		KNOWNNODES = updatedNodes
 
-		return
-	}
+// 		return
+// 	}
 
-	defer conn.Close()
-	_, err = io.Copy(conn, bytes.NewReader(envelope.Serialize()))
-	if err != nil {
-		log.Panic(err)
-	}
-}
+// 	defer conn.Close()
+// 	_, err = io.Copy(conn, bytes.NewReader(envelope.Serialize()))
+// 	if err != nil {
+// 		log.Panic(err)
+// 	}
+// }

@@ -1,27 +1,30 @@
 package network
 
 import (
+	"bytes"
+	"encoding/gob"
 	"gochain/blockchain"
-	"gochain/utils"
+	
 )
 
 
 type TransactionMessage struct {
 	Command     []byte
-	FromIp	[]byte
 	Transaction *blockchain.Transaction
 }
 
-func (tm *TransactionMessage) Init(fromIp []byte,tx *blockchain.Transaction){
+func (tm *TransactionMessage) Init(tx *blockchain.Transaction){
 	tm.Command = []byte("transaction")
-	tm.FromIp = fromIp
+	
 	tm.Transaction = tx
 }
 
 func (tm TransactionMessage) Serialize() []byte{
-	result := utils.ToLittleEndian(tm.FromIp)
-	result = append(result, tm.Transaction.Serialize()...)
-	return result
+	b := bytes.Buffer{}
+    e := gob.NewEncoder(&b)
+    err := e.Encode(tm)
+	Handle(err)
+    return b.Bytes()
 }
 
 func (tm TransactionMessage) GetCommand() []byte{
@@ -29,7 +32,12 @@ func (tm TransactionMessage) GetCommand() []byte{
 }
 
 func (tm *TransactionMessage) Parse(data []byte) *blockchain.Transaction {
-	var tx blockchain.Transaction
-	tm.FromIp = utils.ToLittleEndian(data[:4])
-	return tx.Parse(data[4:])
+	var mm MinedMessage
+    b := bytes.Buffer{}
+    b.Write(data)
+    d := gob.NewDecoder(&b)
+    err := d.Decode(&mm)
+	Handle(err)
+	txn := mm.Transaction
+    return txn
 }

@@ -1,144 +1,112 @@
 package blockchain
 
 import (
+	"bytes"
 	"encoding/binary"
+	"encoding/gob"
 	"gochain/wallet"
 
-	"dgraph-io/badger"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 
+
+
 type Account struct{
-	BalanceDatabase *badger.DB
-	NonceDatabase *badger.DB
+ 	Balance uint64
+ 	Nonce uint64
 }
 
-var BALANCEPATH = "./tmp/balances"
-var NONCEPATH = "./tmp/nonces"
+type AccDB struct{
+	AccDatabase *leveldb.DB
+}
+const ACCPATH = "./tmp/accounts"
 
-func (acc *Account) BalanceOf(address string) uint64 {
-	var balance uint64
-	err := acc.BalanceDatabase.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(wallet.AddressToPKH(address))
-		Handle(err)
-		value, err := item.Value()
-		Handle(err)
-		balance = binary.LittleEndian.Uint64(value)	
-			
-		return err
-	})
+
+func (acc *Account) Parse(s []byte) *Account {
+	var acco Account
+    by := bytes.Buffer{}
+    by.Write(s)
+    d := gob.NewDecoder(&by)
+    err := d.Decode(&acco)
 	Handle(err)
-	return balance
+
+    return &acco
 }
 
-func (acc *Account) UpdateBalances(b Block){
+func (acc *Account) Serialize() []byte{
+	by := bytes.Buffer{}
+    e := gob.NewEncoder(&by)
+    err := e.Encode(acc)
+	Handle(err)
+    return by.Bytes()
+}
 
-	var err error
-	var nonce uint64
-	var rbalance uint64
-	var sbalance uint64
+func (acc *AccDB) BalanceNonce(address string) (uint64,uint64) {
+	var account Account
+
+	accdata, err := acc.AccDatabase.Get(wallet.AddressToPKH(address),nil)
+	Handle(err)
+	account = *account.Parse(accdata)	
+	
+	return account.Balance, account.Nonce
+}
+
+func (acc *AccDB) UpdateBalances(b Block){
+	var a Account
+
 	for _,tx := range b.Transactions{
-
-		err = acc.BalanceDatabase.Update(func(txn *badger.Txn) error {
-			if (tx.IsCoinbase()){
-				rbalance = acc.BalanceOf(string(tx.receipent))
-				err = txn.Set(wallet.AddressToPKH(string(tx.receipent)), ToBytes(rbalance + tx.Value))
-				Handle(err)
-			} else {
-				rbalance = acc.BalanceOf(string(tx.receipent))
-				err = txn.Set(wallet.AddressToPKH(string(tx.receipent)), ToBytes(rbalance + tx.Value))
-				Handle(err)
-
-				sbalance = acc.BalanceOf(wallet.PKHtoAddress(wallet.PktoPKH(tx.pubkey)))
-				err = txn.Set(wallet.PktoPKH(tx.pubkey), ToBytes(sbalance - tx.Value))
-				Handle(err)
-			}
-			return err
-		})
-		Handle(err)
 		
-		if (!tx.IsCoinbase()){
-			err = acc.NonceDatabase.Update(func(txn *badger.Txn) error {
-				nonce = acc.NonceOf(wallet.PKHtoAddress(wallet.PktoPKH(tx.pubkey)))
-				
-				err = txn.Set(wallet.PktoPKH(tx.pubkey), ToBytes(nonce + 1))
-				Handle(err)
-				return err
-			})
+		if (tx.IsCoinbase()){
+			rdata,err := acc.AccDatabase.Get(tx.Receipent,nil)
+			if err == nil {
+				a = *a.Parse(rdata)
+			}
+			a.Balance = a.Balance + tx.Value
+			err = acc.AccDatabase.Put(tx.Receipent, a.Serialize(), nil)
+			Handle(err)
+		} else {
+			rdata,err := acc.AccDatabase.Get(tx.Receipent,nil)
+			if err == nil {
+				a = *a.Parse(rdata)
+			}
+			a.Balance = a.Balance + tx.Value
+			err = acc.AccDatabase.Put(tx.Receipent, a.Serialize(), nil)
+			Handle(err)
+
+			sdata,err := acc.AccDatabase.Get(wallet.PktoPKH(tx.Pubkey),nil)
+			Handle(err)
+			a = *a.Parse(sdata)
+			a.Balance = a.Balance - tx.Value
+			a.Nonce = a.Nonce + 1
+			err = acc.AccDatabase.Put(wallet.PktoPKH(tx.Pubkey), a.Serialize(), nil)
+			Handle(err)
+
 		}
 		
-		Handle(err)
-		
 	}
-	acc.BalanceDatabase.Close()
-	acc.NonceDatabase.Close()
 }
 
-func (acc *Account) NonceOf(address string) uint64{
-	var nonce uint64
-	err := acc.NonceDatabase.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(wallet.AddressToPKH(address))
-		Handle(err)
-		value, err := item.Value()
-		Handle(err)
-		nonce = binary.LittleEndian.Uint64(value)	
-			
-		return err
-	})
+
+func GetAccounts() *AccDB{
+	db, err := leveldb.OpenFile(ACCPATH,nil)
 	Handle(err)
-	return nonce
-}
-
-func GetAccounts() *Account{
-	optsb := badger.DefaultOptions
-	optsb.Dir = BALANCEPATH
-	optsb.ValueDir = BALANCEPATH
-
-	bdb, err := openDB(BALANCEPATH,optsb)
-	Handle(err)
-
-	optsn := badger.DefaultOptions
-	optsn.Dir = NONCEPATH
-	optsn.ValueDir = NONCEPATH
-
-	ndb, err := openDB(NONCEPATH,optsn)
-	Handle(err)
-
-	return &Account{bdb, ndb}
+	return &AccDB{db}
 
 }
 
-func InitAccounts(address string) *Account{
+func InitAccounts(address string) *AccDB{
 	
-	optsb := badger.DefaultOptions
-	optsb.Dir = BALANCEPATH
-	optsb.ValueDir = BALANCEPATH
-
-	bdb, err := openDB(BALANCEPATH,optsb)
+	db, err := leveldb.OpenFile(ACCPATH,nil)
 	Handle(err)
 
-	err = bdb.Update(func(txn *badger.Txn) error {
-		err = txn.Set(wallet.AddressToPKH(address), ToBytes(50))
-		Handle(err)
-		return err
-	})
+	acc := Account{Balance: 50,Nonce: 0}
+	
+	err = db.Put(wallet.AddressToPKH(address),acc.Serialize(),nil)
 	Handle(err)
+	
 
-	optsn := badger.DefaultOptions
-	optsn.Dir = NONCEPATH
-	optsn.ValueDir = NONCEPATH
-
-	ndb, err := openDB(NONCEPATH,optsn)
-	Handle(err)
-
-	err = ndb.Update(func(txn *badger.Txn) error {
-		err = txn.Set(wallet.AddressToPKH(address), ToBytes(1))
-		Handle(err)
-		return err
-	})
-	Handle(err)
-
-	accounts := Account{bdb,ndb}
+	accounts := AccDB{db}
 	return &accounts
 }
 

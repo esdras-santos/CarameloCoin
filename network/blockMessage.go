@@ -9,9 +9,9 @@ type BlockMessage struct {
 	Block *blockchain.Block
 }
 
-func (bm *BlockMessage) Init(block *blockchain.Block){
+func (bm *BlockMessage) Init(block blockchain.Block){
 	bm.Command = []byte("block")
-	bm.Block = block
+	bm.Block = &block
 }
 
 func (bm BlockMessage) GetCommand() []byte{
@@ -24,7 +24,7 @@ func (bm BlockMessage) Serialize() []byte{
 
 func (bm *BlockMessage) Parse(data []byte) *blockchain.Block{
 	block := &blockchain.Block{}
-	block.Parse(data)
-	bm.Init(block)
-	return bm
+	block = block.Parse(data)
+	bm.Init(*block)
+	return bm.Block
 }

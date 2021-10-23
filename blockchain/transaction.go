@@ -18,10 +18,10 @@ import (
 )
 
 type Transaction struct {
-	sig []byte
-	nonce uint64
-	pubkey []byte
-	receipent []byte
+	Sig []byte
+	Nonce uint64
+	Pubkey []byte
+	Receipent []byte
 	Value uint64
 }
 
@@ -78,10 +78,10 @@ func (tx *Transaction) Parse(data []byte) *Transaction {
 
 func CoinbaseTx(w *wallet.Wallet) *Transaction{
 	var tx Transaction
-	tx.nonce = 0
-	tx.pubkey = []byte{0x0000000000000000000000000000000000000001}
-	tx.sig = []byte{0x00000001}
-	tx.receipent = w.Address()
+	tx.Nonce = 0
+	tx.Pubkey = []byte{0x0000000000000000000000000000000000000001}
+	tx.Sig = []byte{0x00000001}
+	tx.Receipent = w.Address()
 	//miner prize
 	tx.Value = 50
 
@@ -89,14 +89,15 @@ func CoinbaseTx(w *wallet.Wallet) *Transaction{
 }
 
 func NewTransaction(from *wallet.Wallet, to string, amount uint64, chain *BlockChain) *Transaction {
-	if(chain.Acc.BalanceOf(string(from.Address())) < amount){
+	balance, Nonce := chain.Acc.BalanceNonce(string(from.Address()))
+	if(balance < amount+1){
 		log.Panic("not enough balance!")
 	}
 	tx := Transaction{}
-	tx.nonce = chain.Acc.NonceOf(string(from.Address())) + 1
-	tx.pubkey = from.PublicKey
+	tx.Nonce = Nonce+1
+	tx.Pubkey = from.PublicKey
 	tx.Value = uint64(amount) + 1//fee
-	tx.receipent = []byte(to)
+	tx.Receipent = []byte(to)
 
 	tx.Sign(from,chain)
 
@@ -104,10 +105,10 @@ func NewTransaction(from *wallet.Wallet, to string, amount uint64, chain *BlockC
 }
 
 func (tx *Transaction) IsCoinbase() bool { 
-	if tx.nonce == 0{
+	if tx.Nonce == 0{
 		
-		if bytes.Equal(tx.pubkey,[]byte{0x0000000000000000000000000000000000000001}){
-			if bytes.Equal(tx.sig, []byte{0x00000001}){
+		if bytes.Equal(tx.Pubkey,[]byte{0x0000000000000000000000000000000000000001}){
+			if bytes.Equal(tx.Sig, []byte{0x00000001}){
 				return true
 			}
 		}
@@ -119,11 +120,11 @@ func (tx *Transaction) Sign(wallet *wallet.Wallet, chain *BlockChain) {
 	if tx.IsCoinbase() {
 		return
 	}
-
-	if (chain.Acc.BalanceOf(string(wallet.Address())) >= uint64(tx.Value)){
+	balance, _ := chain.Acc.BalanceNonce(string(wallet.Address()))
+	if (balance >= uint64(tx.Value)){
 		r, s, err := ecdsa.Sign(rand.Reader, &wallet.PrivateKey, tx.Id())
 		signature := append(r.Bytes(), s.Bytes()...)
-		tx.sig = signature
+		tx.Sig = signature
 		Handle(err)
 	} else{
 		log.Panic("not enough founds!")
@@ -182,10 +183,10 @@ func (tx Transaction) String() string {
 	var lines []string
 
 	lines = append(lines, fmt.Sprintf("--- Transaction %x:", tx.Id()))
-	lines = append(lines, fmt.Sprintf("       Nonce:     %d", tx.nonce))
-	lines = append(lines, fmt.Sprintf("       Public Key:       %x", tx.pubkey))
-	lines = append(lines, fmt.Sprintf("       Signature: %x", tx.sig))
-	lines = append(lines, fmt.Sprintf("       Receipent:    %s", tx.receipent))
+	lines = append(lines, fmt.Sprintf("       Nonce:     %d", tx.Nonce))
+	lines = append(lines, fmt.Sprintf("       Public Key:       %x", tx.Pubkey))
+	lines = append(lines, fmt.Sprintf("       Signature: %x", tx.Sig))
+	lines = append(lines, fmt.Sprintf("       Receipent:    %s", tx.Receipent))
 	lines = append(lines, fmt.Sprintf("       Value:    %d", tx.Value))
 
 	return strings.Join(lines, "\n")

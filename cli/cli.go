@@ -2,14 +2,11 @@ package cli
 
 import (
 	"bufio"
-	"context"
 	"flag"
 	"fmt"
 	"gochain/blockchain"
 	"gochain/network"
 
-	"github.com/libp2p/go-libp2p"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 
 	"gochain/wallet"
 	"log"
@@ -39,6 +36,9 @@ func (cli *CommandLine) validateArgs(){
 }
 
 func (cli *CommandLine) StartNode(){
+	
+	chain := blockchain.ContinueBlockChain("./tmp/blocks")
+	defer chain.Database.Close()
 	fmt.Printf("Starting Node \n")
 	w := wallet.MakeWallet()
 	reader := bufio.NewReader(os.Stdin)
@@ -51,27 +51,18 @@ func (cli *CommandLine) StartNode(){
 	if err != nil{
 		log.Panic(err)
 	}
-	if len(network.NODEIP) > 0{
-		if wallet.ValidateAddress(string(w.Address())){
-			fmt.Println("Mining is on. Address to receive rewards: ",string(w.Address()))
-		}else{
-			log.Panic("Wrong miner address")
-		}
-	}
-	ctx := context.Background()
+	// if len(network.NODEIP) > 0{
+	//  	if wallet.ValidateAddress(string(w.Address())){
+	//  		fmt.Println("Mining is on. Address to receive rewards: ",string(w.Address()))
+	//  	}else{
+	//  		log.Panic("Wrong miner address")
+	//  	}
+	// }
+	//this have to wait until you manually finish the connection
+	fmt.Printf("Running at %s...\n",w.Address())
+	network.Listen()
 	
-	h, err := libp2p.New(ctx,libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
-	Handle(err)
-
-	ps, err := pubsub.NewGossipSub(ctx, h)
-	Handle(err)
-
-	err = network.SetupDiscovery(ctx, h)
-	Handle(err)
-
-	nw, err := network.JoinNetwork(ctx, ps, h.ID())
-	Handle(err)
-
+	
 }
 
 func Handle(err error){
@@ -139,8 +130,8 @@ func (cli *CommandLine) printChain(){
 
 	for {
 		block := iter.Next()
-		fmt.Printf("Prev. Hash: %x\n",block.BH.PrevBlock)
-		fmt.Printf("Hash: %x\n",block.BH.Hash())
+		fmt.Printf("Prev. Hash: %x\n",block.PrevBlock)
+		fmt.Printf("Hash: %x\n",block.Hash())
 
 		pow := blockchain.NewProof(block)
 		fmt.Printf("PoW:%s \n",strconv.FormatBool(pow.Validate()))
@@ -149,7 +140,7 @@ func (cli *CommandLine) printChain(){
 		}
 		fmt.Println()
 
-		if len(block.BH.PrevBlock) == 0{
+		if len(block.PrevBlock) == 0{
 			break
 		}
 	}
@@ -166,8 +157,25 @@ func (cli *CommandLine) createblockchain(){
 	if err != nil{
 		log.Panic(err)
 	}
+	
+	network.Connect()
+
 	chain := blockchain.InitBlockChain(w,"./tmp/blocks")
-	chain.Database.Close()
+
+	bm := network.BlockMessage{}
+	block,err := chain.GetBlock(chain.LastHash)
+	Handle(err)
+	
+		
+	bm.Init(block)
+	ne := network.NetworkEnvelope{[]byte(network.MyId),bm.GetCommand(),bm.Serialize()}
+	print("\n enveloped\n")
+	network.Message <- ne
+	print("\n published \n")
+	
+
+	defer chain.Database.Close()
+
 
 	// UTXOSet := blockchain.UTXOSet{chain}
 	// UTXOSet.Reindex()
@@ -188,8 +196,8 @@ func (cli *CommandLine) getBalance(){
 		log.Panic(err)
 	}
 
-	
-	fmt.Printf("Balance of %s: %d \n",w.Address() ,chain.Acc.BalanceOf(string(w.Address())))
+	balance, _ := chain.Acc.BalanceNonce(string(w.Address()))
+	fmt.Printf("Balance of %s: %d \n",w.Address() ,balance)
 }
 
 func (cli *CommandLine) Mine(){
@@ -221,7 +229,15 @@ func (cli *CommandLine) Mine(){
 		txs = append(txs, &t)
 
 	}
-	chain.MineBlock(txs)
+	
+	network.Connect()
+	bm := network.BlockMessage{}
+
+	block := chain.MineBlock(txs)
+	
+	bm.Init(*block)
+	ne := network.NetworkEnvelope{[]byte(network.MyId),bm.GetCommand(),bm.Serialize()}
+	network.Message <- ne
 	fmt.Println("Success!")
 }
 
@@ -248,15 +264,12 @@ func (cli *CommandLine) send(to string, amount uint64, mineNow bool){
 
 
 	tx := blockchain.NewTransaction(wFrom, to, amount, chain)
-	var nc network.NodeCommand
-	//send the transaction to the mempool of all your known nodes
-	go func(){
-		for i,_ := range network.KNOWNNODES{
-			nc.Init(network.KNOWNNODES[i])
-			nc.SendTransaction(*tx)
-		}
-		fmt.Println("Success!")
-	}()
+	network.Connect()
+	txm := network.TransactionMessage{}
+	txm.Init(tx)
+	ne := network.NetworkEnvelope{[]byte(network.MyId),txm.GetCommand(),txm.Serialize()}
+	network.Message <- ne
+
 	if mineNow{
 		cbTx := blockchain.CoinbaseTx(wFrom)
 		for range network.MEMPOOL{
@@ -270,7 +283,13 @@ func (cli *CommandLine) send(to string, amount uint64, mineNow bool){
 			txs = append(txs, &t)
 
 		}
-		chain.MineBlock(txs)
+		bm := network.BlockMessage{}
+
+		block := chain.MineBlock(txs)
+		Handle(err)
+		bm.Init(*block)
+		ne := network.NetworkEnvelope{[]byte(network.MyId),bm.GetCommand(),bm.Serialize()}
+		network.Message <- ne
 		//send message to all nodes for exclude the tx from your mempool because is already mined
 		
 		fmt.Println("Success!")
