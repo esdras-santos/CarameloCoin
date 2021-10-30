@@ -13,7 +13,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/big"
+
 	"os"
 
 	"golang.org/x/crypto/ripemd160"
@@ -76,10 +76,8 @@ func NewKeyPair() (ecdsa.PrivateKey,[]byte){
 	curve := elliptic.P256()
 	private, err := ecdsa.GenerateKey(curve,rand.Reader)
 	Handle(err)
-
-	var pub []byte
 	
-	pub = append(private.PublicKey.X.Bytes(),private.PublicKey.Y.Bytes()...)
+	pub := append(private.PublicKey.X.Bytes(),private.PublicKey.Y.Bytes()...)
 	return *private,pub
 }
 
@@ -88,6 +86,9 @@ func NewKeyPair() (ecdsa.PrivateKey,[]byte){
 func MakeWallet() *Wallet{
 	private,public := NewKeyPair()
 	wallet := Wallet{private,public}
+	fmt.Println("private: ",private.D)
+	fmt.Println("private: ",public)
+
 	return &wallet
 }
 
@@ -106,31 +107,6 @@ func (w *Wallet) PublicKeyHash() []byte{
 to string like that "dataToVerify := fmt.Sprintf("%x\n", transaction)" and then cast 
 to array of bytes and pass as argument like that "script.Script.Evaluate([]byte(dataToVerify))"
 */
-func VerifySignature(txid ,pubkey, sig []byte) bool{
-	curve := elliptic.P256()
-
-	r := big.Int{}
-	s := big.Int{}
-
-	sigLen := len(sig)
-	r.SetBytes(sig[:(sigLen / 2)])
-	s.SetBytes(sig[(sigLen / 2):])
-
-	x := big.Int{}
-	y := big.Int{}
-	keyLen := len(pubkey)
-	x.SetBytes(pubkey[:(keyLen / 2)])
-	y.SetBytes(pubkey[(keyLen / 2):])
-
-	
-
-	rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
-	if ecdsa.Verify(&rawPubKey, txid, &r, &s) == false {
-		return false
-	}
-	return true
-}
-
 
 func CheckSum(payload []byte) []byte{
 	firstHash := sha256.Sum256(payload)
@@ -139,26 +115,29 @@ func CheckSum(payload []byte) []byte{
 	return secondHash[:checksumLength]
 }
 
-func (w *Wallet) LoadFile(password string,walletFile string) error{
+func (w *Wallet) LoadFile(walletFile string) error{
 	if _,err := os.Stat(walletFile);os.IsNotExist(err){
 		return err
 	}
 
-	
+	var wall Wallet
 
 	fileContent, err := ioutil.ReadFile(walletFile)
 	Handle(err)
-	fileContent = decrypt(keyAdjust(password),fileContent)
+	
 	gob.Register(elliptic.P256())
 	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
-	err = decoder.Decode(w)
+	err = decoder.Decode(&wall)
 	Handle(err)
-	
 
+	w.PrivateKey = wall.PrivateKey
+	w.PublicKey = wall.PublicKey
+	fmt.Println("private: ",w.PrivateKey.D)
+	fmt.Println("private: ",w.PublicKey)
 	return nil
 }
 
-func (w *Wallet) SaveFile(password string,walletFile string) {
+func (w *Wallet) SaveFile(walletFile string) {
 	var content bytes.Buffer
 
 	gob.Register(elliptic.P256())
@@ -167,7 +146,7 @@ func (w *Wallet) SaveFile(password string,walletFile string) {
 	Handle(err)
 	
 
-	err = ioutil.WriteFile(walletFile,encrypt(keyAdjust(password),content.Bytes()),0644)
+	err = ioutil.WriteFile(walletFile,content.Bytes(),0644)
 	Handle(err)
 }
 

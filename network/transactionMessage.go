@@ -32,12 +32,12 @@ func (tm TransactionMessage) GetCommand() []byte{
 }
 
 func (tm *TransactionMessage) Parse(data []byte) *blockchain.Transaction {
-	var mm MinedMessage
+	var tmsg TransactionMessage
     b := bytes.Buffer{}
     b.Write(data)
     d := gob.NewDecoder(&b)
-    err := d.Decode(&mm)
+    err := d.Decode(&tmsg)
 	Handle(err)
-	txn := mm.Transaction
+	txn := tmsg.Transaction
     return txn
 }

@@ -44,12 +44,11 @@ func GetBlockChainInstance(lastHash []byte, db *leveldb.DB, acc *AccDB) BlockCha
 
 func (chain *BlockChain) AddBlock(block *Block){
 	var lastBlock Block
-	
+
 	//return if block already exists
 	if _, err := chain.Database.Get(block.Hash(),nil); err == nil{
 		return 
 	}
-	
 
 	blockData := block.Serialize()
 	err := chain.Database.Put(block.Hash(), blockData,nil)
@@ -59,16 +58,13 @@ func (chain *BlockChain) AddBlock(block *Block){
 	data, err := chain.Database.Get(lastHash,nil)
 	Handle(err)
 	lastBlock = *lastBlock.Parse(data)
-	
 	if binary.LittleEndian.Uint64(block.Height) > binary.LittleEndian.Uint64(lastBlock.Height){
-		
 		err = chain.Database.Put([]byte("lh"), block.Hash(),nil)
 		Handle(err)
 		chain.LastHash = block.Hash()
 	}
 	
 	chain.Acc.UpdateBalances(*block)
-	
 
 }
 
@@ -177,6 +173,7 @@ func (chain *BlockChain) MineBlock(transactions []*Transaction) *Block{
 	err = chain.Database.Put(newBlock.Hash(),newBlock.Serialize(),nil)
 	Handle(err)
 	err = chain.Database.Put([]byte("lh"),newBlock.Hash(),nil)
+	Handle(err)
 	chain.LastHash = newBlock.Hash()
 
 
@@ -205,9 +202,8 @@ func InitBlockChain(w *wallet.Wallet,dbPath string) *BlockChain {
 	db, err := leveldb.OpenFile(dbPath,nil)
 	Handle(err)
 	//defer db.Close()
-	cbtx := CoinbaseTx(w)
+	cbtx := CoinbaseTx(w) 
 	genesis := Genesis(cbtx)
-	fmt.Println("Genesis created")
 
 	err = db.Put(genesis.Hash(), genesis.Serialize(),nil)
 	
@@ -309,11 +305,11 @@ func (bc *BlockChain) VerifyTransaction(tx *Transaction) bool{
 	}
 
 	balance,_ := bc.Acc.BalanceNonce(wallet.PKHtoAddress(wallet.PktoPKH(tx.Pubkey)))
-	if !wallet.VerifySignature(tx.Id(), tx.Pubkey, tx.Sig) {
-		
+	id := tx.Id()
+	if !VerifySignature(id, tx.Pubkey, tx.Sig) {
+		print("\ninvalid signature\n")
 		return false
 	} else if balance < tx.Value{
-		
 		return false
 	}
 

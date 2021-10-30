@@ -7,6 +7,8 @@ import (
 	"bufio"
 	"encoding/hex"
 
+	//"strings"
+
 	"context"
 	"crypto/rand"
 
@@ -15,7 +17,6 @@ import (
 	"io"
 	"log"
 	"sync"
-	"time"
 
 	// "os"
 	// "runtime"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p-core/host"
+	"github.com/syndtr/goleveldb/leveldb"
 
 	//"github.com/libp2p/go-libp2p-core/peer"
 	crypto "github.com/libp2p/go-libp2p-core/crypto"
@@ -34,19 +36,19 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-const DiscoveryInterval = time.Hour
-const DiscoveryServiceTag = "caramelocoinnetwork"
+
 var MEMPOOL = make(map[string]blockchain.Transaction)
 var mutex = &sync.Mutex{}
 var Host host.Host
 var MyId string
 
-//root node
-var GenesisPeerID = "QmVDyxmveorvjA29SfYxFvVrPJ8qp8XBN1vqToHKrKi3FP"
+
 
 
 var Peerids = make(map[string]*bufio.ReadWriter)
-var Message = make(chan NetworkEnvelope)
+var Message = make(chan NetworkEnvelope,10)
+
+var MyAddress string
 
 // new network with libp2p-pubsub
 
@@ -54,15 +56,39 @@ type Network struct{
 	RW *bufio.ReadWriter
 }
 
-func Connect() *Network{
-	var nw *Network
+func Connect(genesisnode string) error{
+	
 	 
 	Host, err := MakeHost()
-	Handle(err)
+	
 	
 	Host.SetStreamHandler("/p2p/1.0.0", HandleStream)
 
-	return nw
+	ipfsaddr, err := ma.NewMultiaddr(genesisnode)
+	pid, err := ipfsaddr.ValueForProtocol(ma.P_IPFS)
+	Handle(err)
+	peerid, err := peer.IDB58Decode(pid)
+	Handle(err)
+	tpa := fmt.Sprintf("/ipfs/%s", peerid.Pretty())
+	var targetPeerAddr, _ = ma.NewMultiaddr(tpa)
+	targetAddr := ipfsaddr.Decapsulate(targetPeerAddr)
+	
+	Host.Peerstore().AddAddr(peerid,targetAddr,pstore.PermanentAddrTTL)
+		
+	s, err := Host.NewStream(context.Background(),peerid,"/p2p/1.0.0")
+	Handle(err)
+	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
+	Peerids[pid] = rw
+	MyId = pid
+	go HandleMesssages(rw)
+	go Publish()
+	gb := GetBlockMessage{}
+	gb.Init()
+	ne := NetworkEnvelope{[]byte(MyId),gb.Command,nil}
+	Message <- ne
+
+
+	return err
 }
 
 func Listen(){
@@ -73,12 +99,10 @@ func Listen(){
 	Handle(err)
 	Host.SetStreamHandler("/p2p/1.0.0", HandleStream)
 
-	select {} 
+	
 }
 
 func HandleStream(s net.Stream){
-	log.Println("got a new stream")
-
 	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
 	
 
@@ -102,8 +126,8 @@ func MakeHost() (host.Host, error){
 	Handle(err)
 	
 	hostAddr, _ := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s", h.ID().Pretty()))
-	hp := h.ID().Pretty()
-	print(hp)
+	
+
 	pid, err := hostAddr.ValueForProtocol(ma.P_IPFS)
 	Handle(err)
 	
@@ -113,22 +137,6 @@ func MakeHost() (host.Host, error){
 	MyId = string(peerid)
 	Handle(err)
 	
-	if len(Peerids) > 0 && peerid != peer.ID(GenesisPeerID){
-		ipfsaddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/59428/p2p/QmVDyxmveorvjA29SfYxFvVrPJ8qp8XBN1vqToHKrKi3FP")
-		tpa := fmt.Sprintf("/ipfs/%s", GenesisPeerID)
-		var targetPeerAddr, _ = ma.NewMultiaddr(tpa)
-		targetAddr := ipfsaddr.Decapsulate(targetPeerAddr)
-		peid, err := peer.IDB58Decode(GenesisPeerID)
-		Handle(err)
-		h.Peerstore().AddAddr(peid,targetAddr,pstore.PermanentAddrTTL)
-		
-		s, err := h.NewStream(context.Background(),peid,"/p2p/1.0.0")
-		Handle(err)
-		rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
-		Peerids[GenesisPeerID] = rw
-		//host.Peerstore().Addrs(peerid)
-	}
-
 	addr := h.Addrs()[0]
 	fullAddr := addr.Encapsulate(hostAddr)
 	log.Printf("I am %s\n", fullAddr)
@@ -139,7 +147,9 @@ func MakeHost() (host.Host, error){
 
 
 func Publish() {
+
 	msg :=<- Message
+	print("\npublishing")
 	
 	for _, v := range Peerids{
 		mutex.Lock()
@@ -149,18 +159,43 @@ func Publish() {
 
 		mutex.Lock()
 		
-		sbytes := fmt.Sprintf("%s\n",string(bytes))
-		b, err := v.WriteString(sbytes)
-		Handle(err)
-		log.Println(b)
+		xbytes := fmt.Sprintf("%x\n",string(bytes))	
+		print("\nwrite")
+			
+		v.WriteString(xbytes)
+		print("\nwrited")
+		
 
-		err = v.Flush()
-		Handle(err)
+		v.Flush()
+		
 		
 		mutex.Unlock()
 	}
+	print("\npublished")
 	
 }
+
+func PublishToTarget(msg NetworkEnvelope, rw *bufio.ReadWriter) {
+	mutex.Lock()
+	bytes := msg.Serialize()
+
+	mutex.Unlock()
+
+	mutex.Lock()
+		
+	xbytes := fmt.Sprintf("%x\n",string(bytes))	
+			
+	_, err := rw.WriteString(xbytes)
+	Handle(err)
+	
+
+	err = rw.Flush()
+	Handle(err)
+		
+	mutex.Unlock()
+	
+}
+
 
 func HandleMesssages(rw *bufio.ReadWriter){
 	var msg NetworkEnvelope
@@ -174,6 +209,7 @@ func HandleMesssages(rw *bufio.ReadWriter){
 		if str != "\n"{
 			m := msg.Parse(data)
 			if _, e := Peerids[string(m.Peerid)]; !e{
+				print("\nconnection added")
 				Peerids[string(m.Peerid)] = rw
 			}
 			mutex.Lock()
@@ -192,14 +228,35 @@ func HandleMesssages(rw *bufio.ReadWriter){
 				tx := tm.Parse(m.Payload)
 				HandleMined(tx)
 			case "block":
-				log.Println("block received")
 				bm := BlockMessage{}
 				block := bm.Parse(m.Payload)
-				fmt.Println(block.ToString())
-				fmt.Printf("\nh: %x\n",block.Hash())
-				log.Println("block parsed")
 				HandleBlock(block)
+			case "getblock":
+				bm := GenBlockMessage{}
+				lh := blockchain.BlockchainInstance.GetLastHash()
+				gb, err := blockchain.BlockchainInstance.GetBlock(lh)
+				Handle(err)
+				bm.Init([]byte(MyAddress),gb)
+				ne := NetworkEnvelope{[]byte(MyId),[]byte("genblock"),bm.Serialize()}
+				Message <- ne
+			case "genblock":
+				gb := GenBlockMessage{}
+				block, mineraddr := gb.Parse(m.Payload)
+				db, err := leveldb.OpenFile("./tmp/blocks",nil)
+				Handle(err)
+				err = db.Put(block.Hash(), block.Serialize(),nil)
+				Handle(err)
+				err = db.Put([]byte("lh"), block.Hash(),nil)
+				Handle(err)
+				
+				accdb := blockchain.InitAccounts(string(mineraddr))
+				
+				db.Close()
+				accdb.AccDatabase.Close()
+
 			}
+		
+			
 			mutex.Unlock()
 
 		}
@@ -207,35 +264,36 @@ func HandleMesssages(rw *bufio.ReadWriter){
 
 }
 
+
 //this function is just for tests forwhile
-func ConnectWithPeer() *bufio.ReadWriter{
-	var r io.Reader
-	r = rand.Reader
+// func ConnectWithPeer() *bufio.ReadWriter{
+// 	var r io.Reader
+// 	r = rand.Reader
 
-	priv, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA,2048,r)
-	Handle(err)
+// 	priv, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA,2048,r)
+// 	Handle(err)
 
-	opts := []libp2p.Option{
-		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"),
-		libp2p.Identity(priv),
-	}
+// 	opts := []libp2p.Option{
+// 		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"),
+// 		libp2p.Identity(priv),
+// 	}
 
-	host, err := libp2p.New(context.Background(), opts...)
-	Handle(err)
+// 	host, err := libp2p.New(context.Background(), opts...)
+// 	Handle(err)
 
-	ipfsaddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/56915/ipfs/QmS4x9RtzLhqYDVbFRDzNAYVdGXtFhGPsmHVDbtGQbChdA")
-	tpa := fmt.Sprintf("/ipfs/%s", GenesisPeerID)
-	var targetPeerAddr, _ = ma.NewMultiaddr(tpa)
-	targetAddr := ipfsaddr.Decapsulate(targetPeerAddr)
-	peid, err := peer.IDB58Decode(GenesisPeerID)
-	Handle(err)
-	host.Peerstore().AddAddr(peid,targetAddr,pstore.PermanentAddrTTL)
+// 	ipfsaddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/56915/ipfs/QmS4x9RtzLhqYDVbFRDzNAYVdGXtFhGPsmHVDbtGQbChdA")
+// 	tpa := fmt.Sprintf("/ipfs/%s", GenesisPeerID)
+// 	var targetPeerAddr, _ = ma.NewMultiaddr(tpa)
+// 	targetAddr := ipfsaddr.Decapsulate(targetPeerAddr)
+// 	peid, err := peer.IDB58Decode(GenesisPeerID)
+// 	Handle(err)
+// 	host.Peerstore().AddAddr(peid,targetAddr,pstore.PermanentAddrTTL)
 		
-	s, err := host.NewStream(context.Background(),peid,"/p2p/1.0.0")
-	Handle(err)
-	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
-	return rw
-}
+// 	s, err := host.NewStream(context.Background(),peid,"/p2p/1.0.0")
+// 	Handle(err)
+// 	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
+// 	return rw
+// }
 
 // func (nw *Network) ListPeers() []peer.ID{
 // 	return nw.ps.ListPeers("caramelocoin")

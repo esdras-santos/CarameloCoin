@@ -1,19 +1,14 @@
 package network
 
-import (
-	"gochain/utils"
-)
 
 //when you start a new node this message will be sended
 //when that message is sended your node will receive a "blockchain" message
 type GetBlockMessage struct{
 	Command []byte
-	SenderIp []byte
 }
 
-func (gb *GetBlockMessage) Init(senderIp []byte){
+func (gb *GetBlockMessage) Init(){
 	gb.Command = []byte("getblock")
-	gb.SenderIp = senderIp
 }
 
 func (gb GetBlockMessage) GetCommand() []byte{
@@ -21,12 +16,11 @@ func (gb GetBlockMessage) GetCommand() []byte{
 }
 
 func (gb GetBlockMessage) Serialize() []byte{
-	result := utils.ToLittleEndian(gb.SenderIp)
-	return result
+	
+	return nil
 }
 
 func (gb *GetBlockMessage) Parse(data []byte){
-	sip := utils.ToLittleEndian(data)
-	gb.Init(sip)
+	
 }
 

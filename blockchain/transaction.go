@@ -3,17 +3,17 @@ package blockchain
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
-	
+	"math/big"
+
 	"fmt"
 	"log"
-	
+
 	"strings"
 
-	
-	
 	"gochain/wallet"
 )
 
@@ -27,11 +27,15 @@ type Transaction struct {
 
 func (tx *Transaction) hash() []byte {
 	var hash [32]byte
+	var data []byte
 
-	txCopy := tx
-	//txCopy.ID = []byte{}
+	
+	data = ToBytes(tx.Nonce)
+	data = append(data, tx.Pubkey...)
+	data = append(data, tx.Receipent...)
+	data = append(data, ToBytes(tx.Value)...)
 
-	hash = sha256.Sum256(txCopy.Serialize())
+	hash = sha256.Sum256(data)
 
 	return hash[:]
 }
@@ -90,7 +94,7 @@ func CoinbaseTx(w *wallet.Wallet) *Transaction{
 
 func NewTransaction(from *wallet.Wallet, to string, amount uint64, chain *BlockChain) *Transaction {
 	balance, Nonce := chain.Acc.BalanceNonce(string(from.Address()))
-	if(balance < amount+1){
+	if balance < amount+1{
 		log.Panic("not enough balance!")
 	}
 	tx := Transaction{}
@@ -122,14 +126,42 @@ func (tx *Transaction) Sign(wallet *wallet.Wallet, chain *BlockChain) {
 	}
 	balance, _ := chain.Acc.BalanceNonce(string(wallet.Address()))
 	if (balance >= uint64(tx.Value)){
-		r, s, err := ecdsa.Sign(rand.Reader, &wallet.PrivateKey, tx.Id())
+
+		r,s, err := ecdsa.Sign(rand.Reader, &wallet.PrivateKey, tx.Id())
 		signature := append(r.Bytes(), s.Bytes()...)
 		tx.Sig = signature
+		fmt.Println(signature)
 		Handle(err)
 	} else{
 		log.Panic("not enough founds!")
 	}
 
+}
+func VerifySignature(txid ,pubkey, sig []byte) bool{
+	curve := elliptic.P256()
+
+	r := big.Int{}
+	s := big.Int{}
+
+	sigLen := len(sig)
+	r.SetBytes(sig[:(sigLen / 2)])
+	s.SetBytes(sig[(sigLen / 2):])
+
+	x := big.Int{}
+	y := big.Int{}
+	keyLen := len(pubkey)
+	x.SetBytes(pubkey[:(keyLen / 2)])
+	y.SetBytes(pubkey[(keyLen / 2):])
+
+	
+
+	rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
+	if ecdsa.Verify(&rawPubKey, txid, &r, &s) == false {
+		fmt.Println("invalid signature")
+		return false
+	}
+	fmt.Println("valid signature")
+	return true
 }
 
 

@@ -29,8 +29,6 @@ type Block struct{
 	Transactions []*Transaction
 }
 
-
-
 func (b *Block) ToString() string {
 	var lines []string
 
@@ -47,8 +45,10 @@ func (b *Block) ToString() string {
 	lines = append(lines, fmt.Sprintf("      tx sig:     %x", b.Transactions[0].Sig))
 	lines = append(lines, fmt.Sprintf("    tx value:     %d", b.Transactions[0].Value))
 
+
 	return strings.Join(lines, "\n")
 }
+
 
 //get the current block height from the network
 func GetBlockHeight() uint{
