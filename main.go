@@ -22,6 +22,7 @@ import (
 
 
 func main(){
+
 	
 	if len(os.Args) == 1{
 		fmt.Println("gen node")

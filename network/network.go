@@ -46,7 +46,7 @@ var MyId string
 
 
 var Peerids = make(map[string]*bufio.ReadWriter)
-var Message = make(chan NetworkEnvelope,10)
+var Message = make(chan NetworkEnvelope,120)
 
 var MyAddress string
 
@@ -149,7 +149,6 @@ func MakeHost() (host.Host, error){
 func Publish() {
 
 	msg :=<- Message
-	print("\npublishing")
 	
 	for _, v := range Peerids{
 		mutex.Lock()
@@ -160,18 +159,15 @@ func Publish() {
 		mutex.Lock()
 		
 		xbytes := fmt.Sprintf("%x\n",string(bytes))	
-		print("\nwrite")
-			
-		v.WriteString(xbytes)
-		print("\nwrited")
 		
+		v.WriteString(xbytes)
 
 		v.Flush()
 		
 		
 		mutex.Unlock()
 	}
-	print("\npublished")
+	
 	
 }
 
@@ -209,7 +205,6 @@ func HandleMesssages(rw *bufio.ReadWriter){
 		if str != "\n"{
 			m := msg.Parse(data)
 			if _, e := Peerids[string(m.Peerid)]; !e{
-				print("\nconnection added")
 				Peerids[string(m.Peerid)] = rw
 			}
 			mutex.Lock()
@@ -219,6 +214,7 @@ func HandleMesssages(rw *bufio.ReadWriter){
 				tm := TransactionMessage{} 
 				tx := tm.Parse(m.Payload)
 				if !blockchain.BlockchainInstance.VerifyTransaction(tx){
+					fmt.Println("invalid transaction received")
 					mutex.Unlock()
 					continue
 				}

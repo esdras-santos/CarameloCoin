@@ -85,7 +85,7 @@ func CoinbaseTx(w *wallet.Wallet) *Transaction{
 	tx.Nonce = 0
 	tx.Pubkey = []byte{0x0000000000000000000000000000000000000001}
 	tx.Sig = []byte{0x00000001}
-	tx.Receipent = w.Address()
+	tx.Receipent = wallet.AddressToPKH(string(w.Address()))
 	//miner prize
 	tx.Value = 50
 
@@ -100,8 +100,8 @@ func NewTransaction(from *wallet.Wallet, to string, amount uint64, chain *BlockC
 	tx := Transaction{}
 	tx.Nonce = Nonce+1
 	tx.Pubkey = from.PublicKey
-	tx.Value = uint64(amount) + 1//fee
-	tx.Receipent = []byte(to)
+	tx.Value = amount + 1//fee
+	tx.Receipent = wallet.AddressToPKH(to)
 
 	tx.Sign(from,chain)
 
@@ -130,7 +130,6 @@ func (tx *Transaction) Sign(wallet *wallet.Wallet, chain *BlockChain) {
 		r,s, err := ecdsa.Sign(rand.Reader, &wallet.PrivateKey, tx.Id())
 		signature := append(r.Bytes(), s.Bytes()...)
 		tx.Sig = signature
-		fmt.Println(signature)
 		Handle(err)
 	} else{
 		log.Panic("not enough founds!")
@@ -157,10 +156,9 @@ func VerifySignature(txid ,pubkey, sig []byte) bool{
 
 	rawPubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
 	if ecdsa.Verify(&rawPubKey, txid, &r, &s) == false {
-		fmt.Println("invalid signature")
+		
 		return false
 	}
-	fmt.Println("valid signature")
 	return true
 }
 

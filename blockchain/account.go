@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	
 	"gochain/wallet"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -53,33 +54,46 @@ func (acc *AccDB) BalanceNonce(address string) (uint64,uint64) {
 }
 
 func (acc *AccDB) UpdateBalances(b Block){
-	var a Account
+	var ar Account
+	var as Account
 
 	for _,tx := range b.Transactions{
 		
-		if (tx.IsCoinbase()){
+		if (tx.IsCoinbase() == true){
 			rdata,err := acc.AccDatabase.Get(tx.Receipent,nil)
 			if err == nil {
-				a = *a.Parse(rdata)
+				ar = *ar.Parse(rdata)
 			}
-			a.Balance = a.Balance + tx.Value
-			err = acc.AccDatabase.Put(tx.Receipent, a.Serialize(), nil)
+			ar.Balance = ar.Balance + tx.Value
+			err = acc.AccDatabase.Put(tx.Receipent, ar.Serialize(), nil)
 			Handle(err)
 		} else {
-			rdata,err := acc.AccDatabase.Get(tx.Receipent,nil)
-			if err == nil {
-				a = *a.Parse(rdata)
+			if _, err := acc.AccDatabase.Get(tx.Receipent,nil); err != nil{
+				a := Account{Balance: tx.Value - 1,Nonce: 0}
+	
+				err = acc.AccDatabase.Put(tx.Receipent,a.Serialize(),nil)
+				Handle(err)
+			} else{
+				
+				rdata,err := acc.AccDatabase.Get(tx.Receipent,nil)
+				if err == nil {
+					ar = *ar.Parse(rdata)
+				}
+				
+				ar.Balance = ar.Balance + tx.Value - 1
+				
+				err = acc.AccDatabase.Put(tx.Receipent, ar.Serialize(), nil)
+				Handle(err)
 			}
-			a.Balance = a.Balance + tx.Value
-			err = acc.AccDatabase.Put(tx.Receipent, a.Serialize(), nil)
-			Handle(err)
+			
+			
 
 			sdata,err := acc.AccDatabase.Get(wallet.PktoPKH(tx.Pubkey),nil)
 			Handle(err)
-			a = *a.Parse(sdata)
-			a.Balance = a.Balance - tx.Value
-			a.Nonce = a.Nonce + 1
-			err = acc.AccDatabase.Put(wallet.PktoPKH(tx.Pubkey), a.Serialize(), nil)
+			as = *as.Parse(sdata)
+			as.Balance = as.Balance - tx.Value
+			as.Nonce = as.Nonce + 1
+			err = acc.AccDatabase.Put(wallet.PktoPKH(tx.Pubkey), as.Serialize(), nil)
 			Handle(err)
 
 		}

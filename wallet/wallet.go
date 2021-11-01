@@ -86,8 +86,6 @@ func NewKeyPair() (ecdsa.PrivateKey,[]byte){
 func MakeWallet() *Wallet{
 	private,public := NewKeyPair()
 	wallet := Wallet{private,public}
-	fmt.Println("private: ",private.D)
-	fmt.Println("private: ",public)
 
 	return &wallet
 }
@@ -132,8 +130,6 @@ func (w *Wallet) LoadFile(walletFile string) error{
 
 	w.PrivateKey = wall.PrivateKey
 	w.PublicKey = wall.PublicKey
-	fmt.Println("private: ",w.PrivateKey.D)
-	fmt.Println("private: ",w.PublicKey)
 	return nil
 }
 
