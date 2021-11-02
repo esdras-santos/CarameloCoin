@@ -102,6 +102,15 @@ import (
 
 func HandleBlock(block *blockchain.Block){
 	chain := blockchain.BlockchainInstance
+	for _,tx := range block.Transactions{
+		if chain.VerifyTransaction(tx) != true{
+			log.Panic("Invalid Transaction")
+		}
+		_, ok := MEMPOOL[hex.EncodeToString(tx.Id())];
+    	if ok {
+        	delete(MEMPOOL, hex.EncodeToString(tx.Id()));
+    	}
+	}
 	chain.AddBlock(block)
 }
 
@@ -152,6 +161,7 @@ func HandleBlock(block *blockchain.Block){
 func HandleTx(tx *blockchain.Transaction) {
 
 	MEMPOOL[hex.EncodeToString(tx.Id())] = *tx
+	print("\ntransaction added")
 
 	fmt.Printf("127.0.0.1, %d\n", len(MEMPOOL))
 }

@@ -147,25 +147,27 @@ func MakeHost() (host.Host, error){
 
 
 func Publish() {
-
-	msg :=<- Message
+	for{
+		msg :=<- Message
 	
-	for _, v := range Peerids{
-		mutex.Lock()
-		bytes := msg.Serialize()
+		for _, v := range Peerids{
+			mutex.Lock()
+			bytes := msg.Serialize()
 
-		mutex.Unlock()
+			mutex.Unlock()
 
-		mutex.Lock()
+			mutex.Lock()
 		
-		xbytes := fmt.Sprintf("%x\n",string(bytes))	
-		
-		v.WriteString(xbytes)
+			xbytes := fmt.Sprintf("%x\n",string(bytes))	
+			
+			v.WriteString(xbytes)
 
-		v.Flush()
+			v.Flush()
 		
 		
-		mutex.Unlock()
+			mutex.Unlock()
+		}
+	
 	}
 	
 	
@@ -211,6 +213,7 @@ func HandleMesssages(rw *bufio.ReadWriter){
 			switch string(m.Command){
 			case "transaction":
 				//just forward if is a valid transaction
+				
 				tm := TransactionMessage{} 
 				tx := tm.Parse(m.Payload)
 				if !blockchain.BlockchainInstance.VerifyTransaction(tx){
