@@ -41,7 +41,7 @@ func (b *Block) ToString() string {
 	lines = append(lines, fmt.Sprintf("           h:     %x", b.Height))
 	lines = append(lines, fmt.Sprintf("    tx nonce:     %d", b.Transactions[0].Nonce))
 	lines = append(lines, fmt.Sprintf("   tx pubkey:     %x", b.Transactions[0].Pubkey))
-	lines = append(lines, fmt.Sprintf("tx receipent:     %x", b.Transactions[0].Receipent))
+	lines = append(lines, fmt.Sprintf("tx receipent:     %x", b.Transactions[0].Recipient))
 	lines = append(lines, fmt.Sprintf("      tx sig:     %x", b.Transactions[0].Sig))
 	lines = append(lines, fmt.Sprintf("    tx value:     %d", b.Transactions[0].Value))
 

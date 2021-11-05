@@ -21,7 +21,7 @@ type Transaction struct {
 	Sig []byte
 	Nonce uint64
 	Pubkey []byte
-	Receipent []byte
+	Recipient []byte
 	Value uint64
 }
 
@@ -32,7 +32,7 @@ func (tx *Transaction) hash() []byte {
 	
 	data = ToBytes(tx.Nonce)
 	data = append(data, tx.Pubkey...)
-	data = append(data, tx.Receipent...)
+	data = append(data, tx.Recipient...)
 	data = append(data, ToBytes(tx.Value)...)
 
 	hash = sha256.Sum256(data)
@@ -85,7 +85,7 @@ func CoinbaseTx(w *wallet.Wallet) *Transaction{
 	tx.Nonce = 0
 	tx.Pubkey = []byte{0x0000000000000000000000000000000000000001}
 	tx.Sig = []byte{0x00000001}
-	tx.Receipent = wallet.AddressToPKH(string(w.Address()))
+	tx.Recipient = wallet.AddressToPKH(string(w.Address()))
 	//miner prize
 	tx.Value = 50
 
@@ -101,7 +101,7 @@ func NewTransaction(from *wallet.Wallet, to string, amount uint64, chain *BlockC
 	tx.Nonce = Nonce+1
 	tx.Pubkey = from.PublicKey
 	tx.Value = amount + 1//fee
-	tx.Receipent = wallet.AddressToPKH(to)
+	tx.Recipient = wallet.AddressToPKH(to)
 
 	tx.Sign(from,chain)
 
@@ -216,7 +216,7 @@ func (tx Transaction) String() string {
 	lines = append(lines, fmt.Sprintf("       Nonce:     %d", tx.Nonce))
 	lines = append(lines, fmt.Sprintf("       Public Key:       %x", tx.Pubkey))
 	lines = append(lines, fmt.Sprintf("       Signature: %x", tx.Sig))
-	lines = append(lines, fmt.Sprintf("       Receipent:    %s", tx.Receipent))
+	lines = append(lines, fmt.Sprintf("       Recipient:    %s", tx.Recipient))
 	lines = append(lines, fmt.Sprintf("       Value:    %d", tx.Value))
 
 	return strings.Join(lines, "\n")

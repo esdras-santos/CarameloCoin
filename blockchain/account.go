@@ -60,29 +60,29 @@ func (acc *AccDB) UpdateBalances(b Block){
 	for _,tx := range b.Transactions{
 		
 		if (tx.IsCoinbase() == true){
-			rdata,err := acc.AccDatabase.Get(tx.Receipent,nil)
+			rdata,err := acc.AccDatabase.Get(tx.Recipient,nil)
 			if err == nil {
 				ar = *ar.Parse(rdata)
 			}
 			ar.Balance = ar.Balance + tx.Value
-			err = acc.AccDatabase.Put(tx.Receipent, ar.Serialize(), nil)
+			err = acc.AccDatabase.Put(tx.Recipient, ar.Serialize(), nil)
 			Handle(err)
 		} else {
-			if _, err := acc.AccDatabase.Get(tx.Receipent,nil); err != nil{
+			if _, err := acc.AccDatabase.Get(tx.Recipient,nil); err != nil{
 				a := Account{Balance: tx.Value - 1,Nonce: 0}
 	
-				err = acc.AccDatabase.Put(tx.Receipent,a.Serialize(),nil)
+				err = acc.AccDatabase.Put(tx.Recipient,a.Serialize(),nil)
 				Handle(err)
 			} else{
 				
-				rdata,err := acc.AccDatabase.Get(tx.Receipent,nil)
+				rdata,err := acc.AccDatabase.Get(tx.Recipient,nil)
 				if err == nil {
 					ar = *ar.Parse(rdata)
 				}
 				
 				ar.Balance = ar.Balance + tx.Value - 1
 				
-				err = acc.AccDatabase.Put(tx.Receipent, ar.Serialize(), nil)
+				err = acc.AccDatabase.Put(tx.Recipient, ar.Serialize(), nil)
 				Handle(err)
 			}
 			
