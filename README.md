@@ -53,7 +53,7 @@ type "command" to see the list of commands
 Now initiate the second node into the `CarameloCoin2` directory with the full address of the genesis node:
 
 ```shell
-go run main.go `/ip4/127.0.0.1/tcp/61617/p2p/Qme4LvaqiPDBAwcGaCsyU1UM4gyPLo5r7CpAhXjgieFq8K`
+go run main.go /ip4/127.0.0.1/tcp/61617/p2p/Qme4LvaqiPDBAwcGaCsyU1UM4gyPLo5r7CpAhXjgieFq8K
 ```
 the output will be something like this:
 
